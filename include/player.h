@@ -832,7 +832,7 @@ typedef struct Player {
     /* 0x03B0 */ Vec3f leftHandPos;
     /* 0x03BC */ Vec3s unk_3BC;
     /* 0x03C4 */ Actor* grabbedActor; // Dynapolyactor that is grabbed, pushed or pulled by the player. Blocks, Forest Temple rotating wall etc.
-    /* 0x03C8 */ Vec3f unk_3C8;
+    /* 0x03C8 */ Vec3f rightHandPos; // Used by Hookshot
     /* 0x03D4 */ char unk_3D4[0x058];
     /* 0x042C */ s8 doorType;
     /* 0x042D */ s8 doorDirection;

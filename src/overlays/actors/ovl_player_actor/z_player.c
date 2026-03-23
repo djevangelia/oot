@@ -1816,7 +1816,7 @@ void Player_DetachHeldActor(PlayState* play, Player* this) {
 #endif
     }
 
-    //! @bug This move causes bomb OI/Ocarina items. When the bomb explosion ends, the bomb actor itself clears
+    //! @bug This code move causes bomb OI/Ocarina items. When the bomb explosion ends, the bomb actor itself clears
     //! Player->heldActor etc and removes the carry player state. Next frame, Player_UpperAction_CarryActor will
     //! indirectly call Player_DetachHeldActor to set up a new upper action. In 1.0 the code above doesn't run as
     //! there's no heldActor. In >=1.1 this code runs, and runs before action handlers. If a cutscene item is used the
@@ -8710,7 +8710,7 @@ void func_8084029C(Player* this, f32 speed) {
 }
 
 /**
- * Idle with hostile Z-target
+ * Idle with hostile Z-target. Also used when standing shielding
  */
 void Player_Action_IdleHostile(Player* this, PlayState* play) {
     f32 speedTarget;
@@ -8758,6 +8758,7 @@ void Player_Action_IdleHostile(Player* this, PlayState* play) {
             return;
         }
 
+        // Doesn't seem to happen?
         if (direction < 0) {
             func_8083CBF0(this, yawTarget, play);
             return;
@@ -9911,6 +9912,9 @@ void Player_Action_ShieldCrouch(Player* this, PlayState* play) {
         this->av1.actionVar1 = 0; // Remove flag for crouch stab attack
     }
 
+    // Shield state is unset in Player_UpdateCommon intraframe,
+    // but this lets players change items in Player_UpdateItems
+    // (as IA != held IA when shielding). (Not true for shielding with target)
     if (!Player_IsChildWithHylianShield(this)) {
         this->stateFlags1 |= PLAYER_STATE1_SHIELDING;
         Player_UpdateUpperBody(this, play);
@@ -11526,7 +11530,7 @@ static InitChainEntry sInitChain[] = {
     ICHAIN_F32(lockOnArrowOffset, 500, ICHAIN_STOP),
 };
 
-static EffectBlureInit2 D_8085470C = {
+static EffectBlureInit2 swordBlureParams = {
     0, 8, 0, { 255, 255, 255, 255 }, { 255, 255, 255, 64 }, { 255, 255, 255, 0 }, { 255, 255, 255, 0 }, 4,
     0, 2, 0, { 0, 0, 0, 0 },         { 0, 0, 0, 0 },
 };
@@ -11547,7 +11551,7 @@ void Player_InitCommon(Player* this, PlayState* play, FlexSkeletonHeader* skelHe
                        this->upperMorphTable, PLAYER_LIMB_MAX);
     this->upperSkelAnime.baseTransl = sSkeletonBaseTransl;
 
-    Effect_Add(play, &this->meleeWeaponEffectIndex, EFFECT_BLURE2, 0, 0, &D_8085470C);
+    Effect_Add(play, &this->meleeWeaponEffectIndex, EFFECT_BLURE2, 0, 0, &swordBlureParams);
     ActorShape_Init(&this->actor.shape, 0.0f, ActorShadow_DrawFeet, this->ageProperties->unk_04);
     this->subCamId = CAM_ID_NONE;
 
@@ -13579,7 +13583,7 @@ void Player_PushPullBlock(PlayState* play, Player* this, f32 arg2) {
     }
 }
 
-static AnimSfxEntry D_80854870[] = {
+static AnimSfxEntry blockPushSfx[] = {
     { NA_SE_PL_SLIP, ANIMSFX_DATA(ANIMSFX_TYPE_FLOOR, 3) },
     { NA_SE_PL_SLIP, -ANIMSFX_DATA(ANIMSFX_TYPE_FLOOR, 21) },
 };
@@ -13598,7 +13602,7 @@ void Player_Action_PushBlock(Player* this, PlayState* play) {
         }
     }
 
-    Player_ProcessAnimSfxList(this, D_80854870);
+    Player_ProcessAnimSfxList(this, blockPushSfx);
     func_8083F524(play, this);
 
     if (!func_8083F9D0(play, this)) {
@@ -13623,7 +13627,7 @@ void Player_Action_PushBlock(Player* this, PlayState* play) {
     }
 }
 
-static AnimSfxEntry D_80854878[] = {
+static AnimSfxEntry blockPullSfx[] = {
     { NA_SE_PL_SLIP, ANIMSFX_DATA(ANIMSFX_TYPE_FLOOR, 4) },
     { NA_SE_PL_SLIP, -ANIMSFX_DATA(ANIMSFX_TYPE_FLOOR, 24) },
 };
@@ -13647,7 +13651,7 @@ void Player_Action_PullBlock(Player* this, PlayState* play) {
             }
             if (!DEBUG_FEATURES) {}
         } else {
-            Player_ProcessAnimSfxList(this, D_80854878);
+            Player_ProcessAnimSfxList(this, blockPullSfx);
         }
     }
 
@@ -15964,6 +15968,11 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
     Player_DecelerateToZero(this);
 }
 
+/**
+ * Action when Hookshot is pulling player. Because the setup function (Player_UpdateUpperBody)
+ * sets ANIM_FLAG_OVERRIDE_MOVEMENT, velocity and position is controlled by the Hookshot actor
+ * (ArmsHook_Action_Shoot) and the player actor (here) respectively.
+ */
 void Player_Action_HookshotFly(Player* this, PlayState* play) {
     this->stateFlags2 |= PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW;
 
@@ -15971,19 +15980,22 @@ void Player_Action_HookshotFly(Player* this, PlayState* play) {
         Player_AnimPlayLoop(play, this, &gPlayerAnim_link_hook_fly_wait);
     }
 
+    // Update position using velocity from Hookshot (from previous frame)
     Math_Vec3f_Sum(&this->actor.world.pos, &this->actor.velocity, &this->actor.world.pos);
 
+    // When flying finished
     if (Player_HookshotAvailable(this)) {
-        f32 temp;
+        f32 yDiff;
 
+        // Store current position, as it will be changed below
         Math_Vec3f_Copy(&this->actor.prevPos, &this->actor.world.pos);
         Player_ProcessSceneCollision(play, this);
 
-        temp = this->actor.world.pos.y - this->actor.floorHeight;
-        temp = CLAMP_MAX(temp, 20.0f);
+        yDiff = this->actor.world.pos.y - this->actor.floorHeight;
+        yDiff = CLAMP_MAX(yDiff, 20.0f);
 
         this->actor.world.rot.x = this->actor.shape.rot.x = 0;
-        this->actor.world.pos.y -= temp;
+        this->actor.world.pos.y -= yDiff; // Put player slightly below attach point
         this->speedXZ = 1.0f;
         this->actor.velocity.y = 0.0f;
         Player_SetupNotOnGroundWithAV(this, play);
