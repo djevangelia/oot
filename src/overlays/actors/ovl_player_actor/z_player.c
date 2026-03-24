@@ -3083,7 +3083,12 @@ s32 func_80834F2C(Player* this, PlayState* play) {
     return 0;
 }
 
-s32 func_80834FBC(Player* this) {
+/**
+ * Checks Hookshot status. Also called by Player_Action_HookshotFly to check if
+ * player is to fly.
+ * @return 1 if Hookshot is in player's hand and usable, 0 if fired and/or flying
+ */
+s32 Player_HookshotAvailable(Player* this) {
     if (this->actor.child != NULL) {
         if (this->heldActor == NULL) {
             this->heldActor = this->actor.child;
@@ -3102,7 +3107,7 @@ s32 func_8083501C(Player* this, PlayState* play) {
         this->unk_860 = -this->unk_860;
     }
 
-    if ((!Player_HoldsHookshot(this) || func_80834FBC(this)) && !func_80834758(play, this) &&
+    if ((!Player_HoldsHookshot(this) || Player_HookshotAvailable(this)) && !func_80834758(play, this) &&
         !func_80834F2C(this, play)) {
         return false;
     }
@@ -3200,7 +3205,7 @@ s32 func_808351D4(Player* this, PlayState* play) {
 s32 func_808353D8(Player* this, PlayState* play) {
     LinkAnimation_Update(play, &this->upperSkelAnime);
 
-    if (Player_HoldsHookshot(this) && !func_80834FBC(this)) {
+    if (Player_HoldsHookshot(this) && !Player_HookshotAvailable(this)) {
         return true;
     }
 
@@ -3457,7 +3462,7 @@ s32 Player_SetupAction(PlayState* play, Player* this, PlayerActionFunc actionFun
 
     Player_FinishAnimMovement(this);
 
-    this->stateFlags1 &= ~(PLAYER_STATE1_2 | PLAYER_STATE1_TALKING | PLAYER_STATE1_26 | PLAYER_STATE1_28 |
+    this->stateFlags1 &= ~(PLAYER_STATE1_HOOKSHOT_LAND | PLAYER_STATE1_TALKING | PLAYER_STATE1_26 | PLAYER_STATE1_28 |
                            PLAYER_STATE1_29 | PLAYER_STATE1_31);
     this->stateFlags2 &= ~(PLAYER_STATE2_19 | PLAYER_STATE2_USING_OCARINA | PLAYER_STATE2_IDLE_FIDGET);
     this->stateFlags3 &= ~(PLAYER_STATE3_1 | PLAYER_STATE3_3 | PLAYER_STATE3_FLYING_WITH_HOOKSHOT);
@@ -9182,7 +9187,7 @@ s32 func_80842DF4(PlayState* play, Player* this) {
                                                 &sp5C, &groundPoly, true, false, false, true, &bgId) &&
                         !SurfaceType_IsIgnoredByEntities(&play->colCtx, groundPoly, bgId) &&
                         (SurfaceType_GetFloorType(&play->colCtx, groundPoly, bgId) != FLOOR_TYPE_6) &&
-                        (func_8002F9EC(play, &this->actor, groundPoly, bgId, &sp5C) == 0)) {
+                        (Actor_HitJabuSurface(play, &this->actor, groundPoly, bgId, &sp5C) == 0)) {
 
                         if (this->heldItemAction == PLAYER_IA_HAMMER) {
                             func_80832630(play);
@@ -9680,9 +9685,9 @@ void Player_Action_8084411C(Player* this, PlayState* play) {
                 if (this->av2.actionVar2 >= 0) {
                     if ((this->actor.bgCheckFlags & BGCHECKFLAG_WALL) || (this->av2.actionVar2 == 0) ||
                         (this->fallDistance > 0)) {
-                        if ((sYDistToFloor > 800.0f) || (this->stateFlags1 & PLAYER_STATE1_2)) {
+                        if ((sYDistToFloor > 800.0f) || (this->stateFlags1 & PLAYER_STATE1_HOOKSHOT_LAND)) {
                             func_80843E14(this, NA_SE_VO_LI_FALL_S);
-                            this->stateFlags1 &= ~PLAYER_STATE1_2;
+                            this->stateFlags1 &= ~PLAYER_STATE1_HOOKSHOT_LAND;
                         }
 
                         LinkAnimation_Change(play, &this->skelAnime, &gPlayerAnim_link_normal_landing, 1.0f, 0.0f, 0.0f,
@@ -9706,7 +9711,7 @@ void Player_Action_8084411C(Player* this, PlayState* play) {
                                    (((this->actor.world.pos.y - this->actor.floorHeight) + this->yDistToLedge) >
                                     (70.0f * this->ageProperties->unk_08))) {
                             AnimTaskQueue_DisableTransformTasksForGroup(play);
-                            if (this->stateFlags1 & PLAYER_STATE1_2) {
+                            if (this->stateFlags1 & PLAYER_STATE1_HOOKSHOT_LAND) {
                                 Player_PlayVoiceSfx(this, NA_SE_VO_LI_HOOKSHOT_HANG);
                             } else {
                                 Player_PlayVoiceSfx(this, NA_SE_VO_LI_HANG);
@@ -14987,6 +14992,11 @@ void Player_Action_808507F4(Player* this, PlayState* play) {
     Player_DecelerateToZero(this);
 }
 
+/**
+ * Action when Hookshot is pulling player. Because the setup function (Player_UpdateUpperBody)
+ * sets ANIM_FLAG_OVERRIDE_MOVEMENT, velocity and position is controlled by the Hookshot actor
+ * (ArmsHook_Action_Shoot) and the player actor (here) respectively.
+ */
 void Player_Action_HookshotFly(Player* this, PlayState* play) {
     this->stateFlags2 |= PLAYER_STATE2_5;
 
@@ -14994,25 +15004,28 @@ void Player_Action_HookshotFly(Player* this, PlayState* play) {
         Player_AnimPlayLoop(play, this, &gPlayerAnim_link_hook_fly_wait);
     }
 
+    // Update position using velocity from Hookshot (from previous frame)
     Math_Vec3f_Sum(&this->actor.world.pos, &this->actor.velocity, &this->actor.world.pos);
 
-    if (func_80834FBC(this)) {
-        f32 temp;
+    // When flying finished
+    if (Player_HookshotAvailable(this)) {
+        f32 yDiff;
 
+        // Store current position, as it will be changed below
         Math_Vec3f_Copy(&this->actor.prevPos, &this->actor.world.pos);
         Player_ProcessSceneCollision(play, this);
 
-        temp = this->actor.world.pos.y - this->actor.floorHeight;
-        temp = CLAMP_MAX(temp, 20.0f);
+        yDiff = this->actor.world.pos.y - this->actor.floorHeight;
+        yDiff = CLAMP_MAX(yDiff, 20.0f);
 
         this->actor.world.rot.x = this->actor.shape.rot.x = 0;
-        this->actor.world.pos.y -= temp;
+        this->actor.world.pos.y -= yDiff; // Put player slightly below attach point
         this->speedXZ = 1.0f;
         this->actor.velocity.y = 0.0f;
-        func_80837B9C(this, play);
+        func_80837B9C(this, play); // Assume player is falling down
         this->stateFlags2 &= ~PLAYER_STATE2_10;
         this->actor.bgCheckFlags |= BGCHECKFLAG_GROUND;
-        this->stateFlags1 |= PLAYER_STATE1_2;
+        this->stateFlags1 |= PLAYER_STATE1_HOOKSHOT_LAND;
     } else if ((this->skelAnime.animation != &gPlayerAnim_link_hook_fly_start) || (4.0f <= this->skelAnime.curFrame)) {
         this->actor.gravity = 0.0f;
         Math_ScaledStepToS(&this->actor.shape.rot.x, this->actor.world.rot.x, 0x800);

@@ -707,7 +707,7 @@ typedef struct WeaponInfo {
 
 #define PLAYER_STATE1_0 (1 << 0)
 #define PLAYER_STATE1_SWINGING_BOTTLE (1 << 1) // Bottle is swung; Bottle is active and can catch things
-#define PLAYER_STATE1_2 (1 << 2)
+#define PLAYER_STATE1_HOOKSHOT_LAND (1 << 2)
 #define PLAYER_STATE1_3 (1 << 3)
 #define PLAYER_STATE1_HOSTILE_LOCK_ON (1 << 4) // Currently locked onto a hostile actor. Triggers a "battle" variant of many actions.
 #define PLAYER_STATE1_5 (1 << 5)
@@ -832,7 +832,7 @@ typedef struct Player {
     /* 0x03B0 */ Vec3f leftHandPos;
     /* 0x03BC */ Vec3s unk_3BC;
     /* 0x03C4 */ Actor* unk_3C4;
-    /* 0x03C8 */ Vec3f unk_3C8;
+    /* 0x03C8 */ Vec3f rightHandPos;
     /* 0x03D4 */ char unk_3D4[0x058];
     /* 0x042C */ s8 doorType;
     /* 0x042D */ s8 doorDirection;

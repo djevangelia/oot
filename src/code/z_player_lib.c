@@ -1810,7 +1810,7 @@ void Player_PostLimbDrawGameplay(PlayState* play, s32 limbIndex, Gfx** dList, Ve
             if ((this->heldItemAction == PLAYER_IA_HOOKSHOT) || (this->heldItemAction == PLAYER_IA_LONGSHOT)) {
                 static Vec3f D_80126184 = { 100.0f, 1500.0f, 0.0f };
 
-                Matrix_MultVec3f(&D_80126184, &this->unk_3C8);
+                Matrix_MultVec3f(&D_80126184, &this->rightHandPos);
 
                 if (heldActor != NULL) {
                     static Vec3f D_80126190 = { 100.0f, 1640.0f, 0.0f };
