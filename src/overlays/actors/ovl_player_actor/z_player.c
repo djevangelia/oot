@@ -15998,7 +15998,7 @@ void Player_Action_HookshotFly(Player* this, PlayState* play) {
         this->actor.world.pos.y -= yDiff; // Put player slightly below attach point
         this->speedXZ = 1.0f;
         this->actor.velocity.y = 0.0f;
-        Player_SetupNotOnGroundWithAV(this, play);
+        Player_SetupNotOnGroundWithAV(this, play); // Assume player is falling down
         this->stateFlags2 &= ~PLAYER_STATE2_DEEP_WATER;
         this->actor.bgCheckFlags |= BGCHECKFLAG_GROUND;
         this->stateFlags1 |= PLAYER_STATE1_HOOKSHOT_LAND;

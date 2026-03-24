@@ -1,20 +1,32 @@
 /**
  * @file z_arms_hook.c
+ * Overlay: Arms_Hook
+ * Description: Hookshot and Longshot
  *
- * Hookshot overlay.
  * Hookshot has two actions: ArmsHook_Action_Wait and ArmsHook_Action_Shoot.
  * ArmsHook_Action_Wait is when non-fired. ArmsHook_Action_Shoot is fired.
  * 
  * Overview of Hookshot flow:
- * - Player_Ranged_FireWeapon sets player->heldActor->parent to NULL, to signal fired weapon.
- * - ArmsHook_Action_Wait then sets up ArmsHook_Action_Shoot, sets the chain timer and resets player to its parent.
+ * - Player_Ranged_FireWeapon sets player->heldActor->parent (= Hookshot parent) to NULL, to signal fired weapon.
+ * - ArmsHook_Action_Wait then sets up ArmsHook_Action_Shoot, sets the chain timer and re-sets player as its parent.
  * - ArmsHook_Action_Shoot checks for cancelling fire, decrements the timer, moves the chain forward, and checks for
- * collision. If timer expires or collision, it handles moving the player/struck actor and switching to wait action.
+ * collision. If timer expires or collision, it handles moving the player/struck actor or retracting the chain
+ * and switching to wait action.
  * - To pull the player, ArmsHook_PullPlayer sets player->actor.parent to NULL, which lets Player_UpdateUpperBody
  * set Player_Action_HookshotFly.
+ * 
  * - Note that there are two parts to the Hookshot function - player and Hookshot actor - which might not always
  * be synced (see: Hookshot jump, Majora's Mask remote Hookshot). A high Y velocity is almost certainly due to
- * Player_Action_HookshotFly not being set as its setup removes normal movement update (see that function for reference).
+ * Player_Action_HookshotFly not being set, as its setup removes normal movement update (see that function for reference).
+ * - If player is in an action that doesn't run Player_UpdateUpperBody, player cannot start proper Hookshot flying
+ * until it is changed.
+ * 
+ * - Scene and dynapoly collision is done by line check in ArmsHook_Action_Shoot. The collider for the hook is
+ * updated in ArmsHook_Draw. This means that AT collision detection is delayed by one frame compared to background
+ * collision. If the hook would seem to hit both a wall and a skulltula on the same frame, it will actually only
+ * hit the wall.
+ * - The front edge of the collider is slightly further forward compared to the line check line that was generated
+ * on the same frame.
  */
 
  #include "z_arms_hook.h"
@@ -82,6 +94,7 @@ static Color_RGB8 sUnusedColors[] = {
     { 255, 255, 50 },
 };
 
+// Vectors for matrix calculation of hook, tip and base position
 static Vec3f posVecInactive = { 0.0f, 0.0f, 0.0f };
 static Vec3f posVecActive = { 0.0f, 0.0f, 900.0f };
 static Vec3f tipVecInactive = { 0.0f, 500.0f, -3000.0f };
@@ -96,11 +109,11 @@ void ArmsHook_SetupAction(ArmsHook* this, ArmsHookActionFunc actionFunc) {
 void ArmsHook_Init(Actor* thisx, PlayState* play) {
     ArmsHook* this = (ArmsHook*)thisx;
 
-    // Hook colliders
+    // Set hook collider
     Collider_InitQuad(play, &this->collider);
     Collider_SetQuad(play, &this->collider, &this->actor, &sQuadInit);
     ArmsHook_SetupAction(this, ArmsHook_Action_Wait);
-    this->unk_1E8 = this->actor.world.pos;
+    this->lineBack = this->actor.world.pos;
 }
 
 void ArmsHook_Destroy(Actor* thisx, PlayState* play) {
@@ -114,17 +127,16 @@ void ArmsHook_Destroy(Actor* thisx, PlayState* play) {
 }
 
 /**
- * Wait for player to fire the Hookshot
+ * Hookshot is held item but not fired. Wait for player to fire the Hookshot.
  */
 void ArmsHook_Action_Wait(ArmsHook* this, PlayState* play) {
     if (this->actor.parent == NULL) { // = Player has fired Hookshot (set in Player_Ranged_FireWeapon)
         Player* player = GET_PLAYER(play);
-        // get correct timer length for hookshot or longshot
-        s32 length = (player->heldItemAction == PLAYER_IA_HOOKSHOT) ? 13 : 26;
+        s32 length = (player->heldItemAction == PLAYER_IA_HOOKSHOT) ? 13 : 26; // Get correct timer length for Hookshot or Longshot
 
         ArmsHook_SetupAction(this, ArmsHook_Action_Shoot);
         Actor_SetProjectileSpeed(&this->actor, 20.0f);
-        this->actor.parent = &GET_PLAYER(play)->actor;
+        this->actor.parent = &GET_PLAYER(play)->actor; // Re-set parent
         this->timer = length;
     }
 }
@@ -165,7 +177,8 @@ void ArmsHook_DetachFromActor(ArmsHook* this) {
 }
 
 /**
- * Check for factors that must cancel chain firing. (Button input is handled in ArmsHook_Action_Shoot)
+ * Check for factors that must cancel chain firing. If so, detach and move Hookshot to player hand.
+ * (Button input is handled in ArmsHook_Action_Shoot.)
  * @return 1 if cancel, but this return value is not used (timer 0 is signal)
  */
 s32 ArmsHook_CheckForCancel(ArmsHook* this) {
@@ -209,7 +222,8 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
     Actor_PlaySfx_Flagged2(&player->actor, NA_SE_IT_HOOKSHOT_CHAIN - SFX_FLAG);
     ArmsHook_CheckForCancel(this);
 
-    // If AT hit something before chain timer expired, check if player or actor should be pulled
+    // If AT hit something before chain timer expired, check if player or actor should be pulled.
+    // (This collision detection happened this frame, but with collider set in previous frame.)
     if ((this->timer != 0) && (this->collider.base.atFlags & AT_HIT) &&
         (this->collider.elem.atHitElem->elemMaterial != ELEM_MATERIAL_UNK4)) {
         Actor* touchedActor = this->collider.base.at;
@@ -245,6 +259,7 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
 
         attachedActor = this->attachedActor;
 
+        // Attached to actor - player or actor should get pulled
         if (attachedActor != NULL) {
             if ((attachedActor->update == NULL) ||
                 !ACTOR_FLAGS_CHECK_ALL(attachedActor, ACTOR_FLAG_HOOKSHOT_ATTACHED)) {
@@ -274,9 +289,9 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
             velocity = 0.0f;
             phi_f16 = 0.0f;
         } else {
-            if (this->actor.child != NULL) {
+            if (this->actor.child != NULL) { // Pull player
                 velocity = 30.0f;
-            } else if (attachedActor != NULL) {
+            } else if (attachedActor != NULL) { // Pull something else
                 velocity = 50.0f;
             } else { // Nothing hit - quick retraction
                 velocity = 200.0f;
@@ -299,14 +314,13 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
                 Math_Vec3f_Diff(&attachedActor->world.pos, &this->attachPointOffset, &this->actor.world.pos);
                 phi_f16 = 1.0f;
             } else {
-                // Reposition Hookshot to player hand (newPos used as zero vector)
+                // newPos can be used as zero vector (to return Hookshot to player)
                 Math_Vec3f_Sum(&player->rightHandPos, &newPos, &this->actor.world.pos);
                 if (attachedActor != NULL) {
                     Math_Vec3f_Sum(&this->actor.world.pos, &this->attachPointOffset, &attachedActor->world.pos);
                 }
             }
-        // Pulling Player - set new player velocity for XYZ and rotate
-        // Player position is updated in Player_Action_HookshotFly
+        // Pulling Player - set new player velocity for XYZ and rotate (Player position is updated in Player_Action_HookshotFly)
         } else {
             Math_Vec3f_Diff(&handHookDistVec, &newPos, &player->actor.velocity);
             player->actor.world.rot.x =
@@ -330,18 +344,20 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
         s32 bgId;
         Vec3f intersectPos;
         Vec3f prevFrameDiff;
-        Vec3f sp60;
+        Vec3f lineFront;
 
         Actor_MoveXZGravity(&this->actor);
         Math_Vec3f_Diff(&this->actor.world.pos, &this->actor.prevPos, &prevFrameDiff);
-        Math_Vec3f_Sum(&this->unk_1E8, &prevFrameDiff, &this->unk_1E8);
+        Math_Vec3f_Sum(&this->lineBack, &prevFrameDiff, &this->lineBack); // Get new position for back of line depending on distance moved
         this->actor.shape.rot.x = Math_Atan2S(this->actor.speed, -this->actor.velocity.y);
-        sp60.x = this->unk_1F4.x - (this->unk_1E8.x - this->unk_1F4.x);
-        sp60.y = this->unk_1F4.y - (this->unk_1E8.y - this->unk_1F4.y);
-        sp60.z = this->unk_1F4.z - (this->unk_1E8.z - this->unk_1F4.z);
-        if (BgCheck_EntityLineTest1(&play->colCtx, &sp60, &this->unk_1E8, &intersectPos, &poly, true, true, true, true,
+        lineFront.x = this->prevLineBack.x - (this->lineBack.x - this->prevLineBack.x); // New line front
+        lineFront.y = this->prevLineBack.y - (this->lineBack.y - this->prevLineBack.y);
+        lineFront.z = this->prevLineBack.z - (this->lineBack.z - this->prevLineBack.z);
+        // If line collision and not Jabu type wall
+        if (BgCheck_EntityLineTest1(&play->colCtx, &lineFront, &this->lineBack, &intersectPos, &poly, true, true, true, true,
                                     &bgId) &&
             !Actor_HitJabuSurface(play, &this->actor, poly, bgId, &intersectPos)) {
+            // Move the hook to the intersection point adjusted for normals
             f32 polyNormalX = COLPOLY_GET_NORMAL(poly->normal.x);
             f32 polyNormalZ = COLPOLY_GET_NORMAL(poly->normal.z);
             s32 pad;
@@ -350,7 +366,7 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
             this->actor.world.pos.x += 10.0f * polyNormalX;
             this->actor.world.pos.z += 10.0f * polyNormalZ;
             this->timer = 0;
-            // Collision with hookshotable scene collision or dynapoly
+            // Collision with hookshotable scene collision or dynapoly - pull
             if (SurfaceType_CanHookshot(&play->colCtx, poly, bgId)) {
                 DynaPolyActor* dynaPolyActor;
 
@@ -363,7 +379,7 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
                 }
                 ArmsHook_PullPlayer(this);
                 SFX_PLAY_AT_POS(&this->actor.projectedPos, NA_SE_IT_HOOKSHOT_STICK_OBJ);
-            // Non-hookshotable collision
+            // Non-hookshotable collision - reflect
             } else {
                 CollisionCheck_SpawnShieldParticlesMetal(play, &this->actor.world.pos);
                 SFX_PLAY_AT_POS(&this->actor.projectedPos, NA_SE_IT_HOOKSHOT_REFLECT);
@@ -380,9 +396,12 @@ void ArmsHook_Update(Actor* thisx, PlayState* play) {
     ArmsHook* this = (ArmsHook*)thisx;
 
     this->actionFunc(this, play);
-    this->unk_1F4 = this->unk_1E8;
+    this->prevLineBack = this->lineBack;
 }
 
+/**
+ * Draw the Hookshot hook and chain. Set collider for hook.
+ */
 void ArmsHook_Draw(Actor* thisx, PlayState* play) {
     s32 pad;
     ArmsHook* this = (ArmsHook*)thisx;
@@ -399,25 +418,27 @@ void ArmsHook_Draw(Actor* thisx, PlayState* play) {
         if (1) {}
 
         // Get current positions for hook, tip and base.
-        // Hook position used for collision testing (in Shoot), tip and base for collider
-        if ((ArmsHook_Action_Shoot != this->actionFunc) || (this->timer <= 0)) {
-            Matrix_MultVec3f(&posVecInactive, &this->unk_1E8);
+        // Hook position used for line collision testing (in Shoot), tip and base for collider.
+        if ((ArmsHook_Action_Shoot != this->actionFunc) || (this->timer <= 0)) { // Not fired:
+            Matrix_MultVec3f(&posVecInactive, &this->lineBack);
             Matrix_MultVec3f(&tipVecInactive, &hookTipPos);
             Matrix_MultVec3f(&baseVecInactive, &hookBasePos);
-            this->weaponInfo.active = false; // Don't set AT collider. See Player_UpdateWeaponInfo
-        } else {
-            Matrix_MultVec3f(&posVecActive, &this->unk_1E8);
+            this->weaponInfo.active = false; // Don't set AT collider. See Player_UpdateWeaponInfo.
+            // (This causes the Hookshot's collider to remain at the last place it was active until
+            // activated/fired again, but as it's not active it doesn't cause collision.)
+        } else { // Fired:
+            Matrix_MultVec3f(&posVecActive, &this->lineBack);
             Matrix_MultVec3f(&tipVecActive, &hookTipPos);
             Matrix_MultVec3f(&baseVecActive, &hookBasePos);
         }
 
-        // Hook
         Player_UpdateWeaponInfo(play, &this->collider, &this->weaponInfo, &hookTipPos, &hookBasePos);
+        // Draw hook
         Gfx_SetupDL_25Opa(play->state.gfxCtx);
         MATRIX_FINALIZE_AND_LOAD(POLY_OPA_DISP++, play->state.gfxCtx, "../z_arms_hook.c", 895);
         gSPDisplayList(POLY_OPA_DISP++, gLinkAdultHookshotTipDL);
 
-        // Chain
+        // Draw chain
         Matrix_Translate(this->actor.world.pos.x, this->actor.world.pos.y, this->actor.world.pos.z, MTXMODE_NEW);
         Math_Vec3f_Diff(&player->rightHandPos, &this->actor.world.pos, &handHookDistVec);
         handHookDistSQ = SQ(handHookDistVec.x) + SQ(handHookDistVec.z);
