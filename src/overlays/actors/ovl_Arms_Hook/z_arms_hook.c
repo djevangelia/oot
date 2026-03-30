@@ -343,6 +343,8 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
                 ArmsHook_SetupAction(this, ArmsHook_Action_Wait);
                 if (ArmsHook_AttachToPlayer(this, player)) {
                     // If player was being pulled
+                    //! @bug This gives rise to the enormous Y velocities in Hookshot jump: the larger the distance
+                    //! between attachment and player, the higher the velocity.
                     Math_Vec3f_Diff(&this->actor.world.pos, &player->actor.world.pos, &player->actor.velocity);
                     player->actor.velocity.y -= 20.0f;
                 }

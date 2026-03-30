@@ -117,7 +117,7 @@ typedef enum FloorType {
     /*  3 */ FLOOR_TYPE_3,
     /*  4 */ FLOOR_TYPE_4,
     /*  5 */ FLOOR_TYPE_5,
-    /*  6 */ FLOOR_TYPE_6,
+    /*  6 */ FLOOR_TYPE_6, // No fall damage (Gerudo Fortress exterior walking areas)
     /*  7 */ FLOOR_TYPE_7,
     /*  8 */ FLOOR_TYPE_8,
     /*  9 */ FLOOR_TYPE_9,

@@ -186,11 +186,7 @@ s32 Player_UpperAction_BoomerangWaitForCatchAnim(Player* this, PlayState* play);
 
 void Player_UseItem(PlayState* play, Player* this, s32 item);
 void Player_SetupIdleDependingOnTargetWithAnim(Player* this, PlayState* play);
-<<<<<<< HEAD
 s32 Player_SetupThrowDekuNut(PlayState* play, Player* this);
-=======
-s32 func_8083C61C(PlayState* play, Player* this);
->>>>>>> hookshot
 void Player_UpdateCommon(Player* this, PlayState* play, Input* input);
 void Player_StringReboundCalculation(Player* this);
 void Player_UpdateBunnyEars(Player* this);
@@ -289,11 +285,7 @@ void Player_Action_FastSidewalk(Player* this, PlayState* play);
 void Player_Action_TurnInPlace(Player* this, PlayState* play);
 void Player_Action_RunWalk(Player* this, PlayState* play);
 void Player_Action_RunWalkParallel(Player* this, PlayState* play);
-<<<<<<< HEAD
 void Player_Action_PlantMagicBean(Player* this, PlayState* play);
-=======
-void Player_Action_8084279C(Player* this, PlayState* play);
->>>>>>> hookshot
 void Player_Action_808423EC(Player* this, PlayState* play);
 void Player_Action_8084251C(Player* this, PlayState* play);
 void Player_Action_ShieldCrouch(Player* this, PlayState* play);
@@ -1807,6 +1799,10 @@ void Player_EndOnePointCutscene(PlayState* play, Player* this) {
     this->stateFlags2 &= ~(PLAYER_STATE2_DEEP_WATER | PLAYER_STATE2_DIVING);
 }
 
+/**
+ * 1. Detach held actor (unless holding Hookshot) and clear related actors + flag.
+ * 2. If explosive, start item change to none.
+ */
 void Player_DetachHeldActor(PlayState* play, Player* this) {
     Actor* heldActor = this->heldActor;
 
@@ -1817,6 +1813,9 @@ void Player_DetachHeldActor(PlayState* play, Player* this) {
         heldActor->parent = NULL;
         this->stateFlags1 &= ~PLAYER_STATE1_CARRYING_ACTOR;
 #if OOT_VERSION < NTSC_1_1
+        // This is run if bomb is dropped, thrown, or detonates in player's hands while still.
+        //! @bug If running when bomb detonates, held item and IA will not be changed to none.
+        //! Quickdraw state. Next bomb will be instantly dropped/thrown.
         if (Player_GetExplosiveHeld(this) >= 0) {
             Player_InitItemAction(play, this, PLAYER_IA_NONE);
             this->heldItemId = ITEM_NONE_FE;
@@ -1824,9 +1823,9 @@ void Player_DetachHeldActor(PlayState* play, Player* this) {
 #endif
     }
 
-    //! @bug This code move causes bomb OI/Ocarina items. When the bomb explosion ends, the bomb actor itself clears
+    //! @bug Bomb OI/Ocarina items. When the bomb explosion ends, the bomb actor itself clears
     //! Player->heldActor etc and removes the carry player state. Next frame, Player_UpperAction_CarryActor will
-    //! indirectly call Player_DetachHeldActor to set up a new upper action. In 1.0 the code above doesn't run as
+    //! indirectly call Player_DetachHeldActor to set new upper action. In 1.0 the code above doesn't run, as
     //! there's no heldActor. In >=1.1 this code runs, and runs before action handlers. If a cutscene item is used the
     //! frame after the bomb actor is destroyed, unk_6AD will be 4 but held item will be none by the time action
     //! handlers run.
@@ -2377,11 +2376,7 @@ int Player_IsAimingBoomerang(Player* this) {
  * should be forward. Hostile Z-target
  */
 LinkAnimationHeader* Player_SetIdleAnimRightForward(Player* this) {
-<<<<<<< HEAD
     if (Player_IsAimingBoomerang(this)) {
-=======
-    if (func_808334B4(this)) {
->>>>>>> hookshot
         return &gPlayerAnim_link_boom_throw_waitR;
     } else {
         return GET_PLAYER_ANIM(PLAYER_ANIMGROUP_waitR, this->modelAnimType);
@@ -2389,11 +2384,7 @@ LinkAnimationHeader* Player_SetIdleAnimRightForward(Player* this) {
 }
 
 LinkAnimationHeader* Player_SetIdleAnimLeftForward(Player* this) {
-<<<<<<< HEAD
     if (Player_IsAimingBoomerang(this)) {
-=======
-    if (func_808334B4(this)) {
->>>>>>> hookshot
         return &gPlayerAnim_link_boom_throw_waitL;
     } else {
         return GET_PLAYER_ANIM(PLAYER_ANIMGROUP_waitL, this->modelAnimType);
@@ -2401,11 +2392,7 @@ LinkAnimationHeader* Player_SetIdleAnimLeftForward(Player* this) {
 }
 
 LinkAnimationHeader* Player_SetSlowSidewalkAnim(Player* this) {
-<<<<<<< HEAD
     if (Player_IsAimingRanged(this)) {
-=======
-    if (func_8002DD78(this)) {
->>>>>>> hookshot
         return &gPlayerAnim_link_bow_side_walk;
     } else {
         return GET_PLAYER_ANIM(PLAYER_ANIMGROUP_side_walk, this->modelAnimType);
@@ -2413,11 +2400,7 @@ LinkAnimationHeader* Player_SetSlowSidewalkAnim(Player* this) {
 }
 
 LinkAnimationHeader* Player_SetBoomerangSidewalkAnimRight(Player* this) {
-<<<<<<< HEAD
     if (Player_IsAimingBoomerang(this)) {
-=======
-    if (func_808334B4(this)) {
->>>>>>> hookshot
         return &gPlayerAnim_link_boom_throw_side_walkR;
     } else {
         return GET_PLAYER_ANIM(PLAYER_ANIMGROUP_side_walkR, this->modelAnimType);
@@ -2425,11 +2408,7 @@ LinkAnimationHeader* Player_SetBoomerangSidewalkAnimRight(Player* this) {
 }
 
 LinkAnimationHeader* Player_SetBoomerangSidewalkAnimLeft(Player* this) {
-<<<<<<< HEAD
     if (Player_IsAimingBoomerang(this)) {
-=======
-    if (func_808334B4(this)) {
->>>>>>> hookshot
         return &gPlayerAnim_link_boom_throw_side_walkL;
     } else {
         return GET_PLAYER_ANIM(PLAYER_ANIMGROUP_side_walkL, this->modelAnimType);
@@ -2457,7 +2436,7 @@ void Player_InitItemActionWithAnim(PlayState* play, Player* this, s8 itemAction)
     u32 animGroup;
 
     // This is redundant, the same two flags get unset in
-    // `Player_InitItemAction` called below.
+    // `Player_InitItemAction` called below (unless NTSC 1.0).
     this->stateFlags1 &= ~(PLAYER_STATE1_HOLDING_RANGED | PLAYER_STATE1_HOLDING_BOOMERANG);
 
     for (animGroup = 0; animGroup < PLAYER_ANIMGROUP_MAX; animGroup++) {
@@ -2711,6 +2690,9 @@ int Player_IsZTargetingWithHostileUpdate(Player* this) {
     return Player_UpdateHostileLockOn(this) || Player_FriendlyLockOnOrParallel(this);
 }
 
+/**
+ * Reset which foot is currently forward, used with fast sidewalk, hostile idle etc.
+ */
 void Player_ResetForwardFootWeight(Player* this) {
     this->forwardFootWeight = this->forwardFoot = 0.0f;
 }
@@ -2797,6 +2779,9 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
 
             item = Player_GetItemOnButton(play, i);
 
+            //! @bug This doesn't set heldItemButton, nor confirm that item is actually held item.
+            //! This is used to get bottle on B. The C press during shield swipe will not register
+            //! as "pressed" but as "held", so if B is still heldItemButton, bottle goes on B.
             if ((item < ITEM_NONE_FE) && (Player_ItemToItemAction(item) == this->heldItemAction)) {
                 sHeldItemButtonIsHeldDown = true;
             }
@@ -2859,6 +2844,10 @@ void Player_StartChangingHeldItem(Player* this, PlayState* play) {
 }
 
 void Player_UpdateItems(Player* this, PlayState* play) {
+    //! @bug Without the added state check below it's possible to do quick putaway with CS item, as if other
+    //! conditions are OK Player_ProcessItemButtons runs before Player_StartChangingHeldItem
+    //! and can call Player_UseItem. The state is unset.
+    //! Player IA and held IA are of previous item, but held item is none.
     if ((this->actor.category == ACTORCAT_PLAYER) &&
 #if OOT_VERSION >= NTSC_1_1
         !(this->stateFlags1 & PLAYER_STATE1_START_CHANGING_HELD_ITEM) &&
@@ -2878,6 +2867,7 @@ void Player_UpdateItems(Player* this, PlayState* play) {
 
 /**
  * Returns current ammo for Bow or Slingshot.
+ * This forces adult to use arrows and child to use seeds.
  */
 s32 Player_ReturnItemAmmo(PlayState* play, Player* this, s32* itemPtr, s32* typePtr) {
     if (LINK_IS_ADULT) {
@@ -2888,6 +2878,7 @@ s32 Player_ReturnItemAmmo(PlayState* play, Player* this, s32* itemPtr, s32* type
         } else {
             // PLAYER_IA_BOW is 8, the magic arrows IA are 9-11.
             // Ammo type pointer is set to normal or type of magic arrow
+            //! @bug Deku Stick action swap with bow. typePtr becomes 0 = ARROW_NORMAL_LIT.
             *typePtr = ARROW_NORMAL + (this->heldItemAction - PLAYER_IA_BOW);
         }
     } else {
@@ -2971,13 +2962,14 @@ s32 Player_Ranged_LoadWeapon(Player* this, PlayState* play) {
     return 0;
 }
 
+/**
+ * 1. Plays put away and pull out sounds for item change.
+ * 2. Calls Player_UseItem for the second time during the item change process
+ * to set the new player item action, based on item ID.
+ */
 void Player_FinishItemChange(PlayState* play, Player* this) {
     if (this->heldItemAction != PLAYER_IA_NONE) {
-<<<<<<< HEAD
         if (Player_GetSwordInHand(this, this->heldItemAction) >= 0) {
-=======
-        if (func_8008F2BC(this, this->heldItemAction) >= 0) {
->>>>>>> hookshot
             Player_PlayItemNoise(this, NA_SE_IT_SWORD_PUTAWAY);
         } else {
             Player_PlayItemNoise(this, NA_SE_PL_CHANGE_ARMS);
@@ -2986,18 +2978,24 @@ void Player_FinishItemChange(PlayState* play, Player* this) {
 
     Player_UseItem(play, this, this->heldItemId);
 
-<<<<<<< HEAD
     if (Player_GetSwordInHand(this, this->heldItemAction) >= 0) {
-=======
-    if (func_8008F2BC(this, this->heldItemAction) >= 0) {
->>>>>>> hookshot
         Player_PlayItemNoise(this, NA_SE_IT_SWORD_PICKOUT);
     } else if (this->heldItemAction != PLAYER_IA_NONE) {
         Player_PlayItemNoise(this, NA_SE_PL_CHANGE_ARMS);
     }
 }
 
-void func_80834644(PlayState* play, Player* this) {
+/**
+ * Sets correct IA upper action for the held item.
+ * Called when dropping and throwing regular actors and throwing silver rocks,
+ * by Player_UpperAction_Carry if heldActor is NULL (requires carrying state if NTSC >=1.1),
+ * by Player_SetupAction is carry state is not set (as well as during horse riding action)
+ */
+void Player_SetUpperIA(PlayState* play, Player* this) {
+    //! @bug Damage quick putaway/QPA. If player started item change via Player_UseItem
+    //! but takes damage the next frame, this function will be called by Player_SetupAction
+    //! (setting up Player_Action_DamageReaction) before upper action is set to
+    //! ChangeHeldItem. The item change state will be removed.
     if (Player_UpperAction_ChangeHeldItem == this->upperActionFunc) {
         Player_FinishItemChange(play, this);
     }
@@ -3017,11 +3015,7 @@ LinkAnimationHeader* Player_ShieldWithTargetSelectAnim(PlayState* play, Player* 
     Player_DetachHeldActor(play, this);
 
     if (this->forwardFootWeight < 0.5f) {
-<<<<<<< HEAD
         return sShieldWithTarget_RightForward[Player_HoldsTwoHandedWeapon(this)];
-=======
-        return D_808543A4[Player_HoldsTwoHandedWeapon(this)];
->>>>>>> hookshot
     } else {
         return sShieldWithTarget_LeftForward[Player_HoldsTwoHandedWeapon(this)];
     }
@@ -3121,6 +3115,8 @@ s32 Player_UpperAction_ChangeHeldItem(Player* this, PlayState* play) {
         ((Player_ItemToItemAction(this->heldItemId) == this->heldItemAction) &&
          (sUseHeldItem =
               (sUseHeldItem || ((this->modelAnimType != PLAYER_ANIMTYPE_3) && (play->shootingGalleryStatus == 0)))))) {
+        //! @bug Action swap. If held item is not same as held IA, wrong upper action will be selected.
+        //! When using the quickdrawn item, item action will be updated, but upper action will not.
         Player_SetUpperActionFunc(this, sItemActionUpdateFuncs[this->heldItemAction]);
         this->rangedAimingOrLoaded = 0;
         this->idleType = PLAYER_IDLE_DEFAULT;
@@ -3339,13 +3335,8 @@ s32 Player_UpperAction_RangedNotAiming(Player* this, PlayState* play) {
         this->unk_860 = -this->unk_860;
     }
 
-<<<<<<< HEAD
     if ((!Player_HoldsHookshot(this) || Player_HookshotAvailable(this)) && !Player_StartShieldWithTarget(play, this) &&
         !Player_Ranged_InitAiming(this, play)) {
-=======
-    if ((!Player_HoldsHookshot(this) || Player_HookshotAvailable(this)) && !func_80834758(play, this) &&
-        !func_80834F2C(this, play)) {
->>>>>>> hookshot
         return false;
     }
 
@@ -3494,10 +3485,7 @@ s32 Player_UpperAction_RangedLoaded(Player* this, PlayState* play) {
 s32 Player_UpperAction_RangedNotLoaded(Player* this, PlayState* play) {
     LinkAnimation_Update(play, &this->upperSkelAnime);
 
-<<<<<<< HEAD
     // Cannot do anything if Hookshot is fired
-=======
->>>>>>> hookshot
     if (Player_HoldsHookshot(this) && !Player_HookshotAvailable(this)) {
         return true;
     }
@@ -3575,7 +3563,6 @@ void Player_SetParallel(Player* this) {
     this->parallelYaw = this->actor.shape.rot.y;
 }
 
-<<<<<<< HEAD
 /**
  * Check if an actor is null. Often used with heldActor and interactActor.
  * @return 1 if actor is null
@@ -3583,11 +3570,6 @@ void Player_SetParallel(Player* this) {
 s32 Player_ActorIsNull(PlayState* play, Player* this, Actor* actor) {
     if (actor == NULL) {
         Player_ResetStatesHeldActor(play, this);
-=======
-s32 func_80835644(PlayState* play, Player* this, Actor* arg2) {
-    if (arg2 == NULL) {
-        func_80832564(play, this);
->>>>>>> hookshot
         Player_SetupIdleDependingOnTargetWithAnim(this, play);
         return 1;
     }
@@ -3604,10 +3586,11 @@ void Player_SetupUpperActionCarryActor(Player* this, PlayState* play) {
 
 s32 Player_UpperAction_CarryActor(Player* this, PlayState* play) {
 #if OOT_VERSION >= NTSC_1_1
+    // Ensure that upper item action is same as held item/Player_UpperAction_DefaultNone.
     Actor* heldActor = this->heldActor;
 
     if (heldActor == NULL) {
-        func_80834644(play, this);
+        Player_SetUpperIA(play, this);
     }
 #endif
 
@@ -3624,14 +3607,17 @@ s32 Player_UpperAction_CarryActor(Player* this, PlayState* play) {
             LinkAnimation_PlayLoop(play, &this->upperSkelAnime, &gPlayerAnim_link_normal_carryB_wait);
         }
 
+        //! @bug For bomb, bombchu this can never run. The carry state is removed when dropping/throwing or
+        //! or exploding in hands.
 #if OOT_VERSION < NTSC_1_1
         heldActor = this->heldActor;
         if (heldActor == NULL) {
-            func_80834644(play, this);
+            Player_SetUpperIA(play, this);
             return true;
         }
 #endif
 
+        // Cuccoo flying velocity and gravity
         if ((heldActor->id == ACTOR_EN_NIW) && (this->actor.velocity.y <= 0.0f)) {
             this->actor.minVelocityY = -2.0f;
             this->actor.gravity = -0.5f;
@@ -3804,23 +3790,16 @@ s32 Player_SetupAction(PlayState* play, Player* this, PlayerActionFunc actionFun
     }
 
     if (!(flags & 1) && !(this->stateFlags1 & PLAYER_STATE1_CARRYING_ACTOR)) {
-        func_80834644(play, this);
+        Player_SetUpperIA(play, this);
         this->stateFlags1 &= ~PLAYER_STATE1_SHIELDING;
     }
 
     Player_FinishAnimMovement(this);
 
-<<<<<<< HEAD
     this->stateFlags1 &= ~(PLAYER_STATE1_HOOKSHOT_LAND | PLAYER_STATE1_TALKING | PLAYER_STATE1_KNOCKBACK_FROZEN | PLAYER_STATE1_28 |
                            PLAYER_STATE1_CUTSCENE | PLAYER_STATE1_FALL_VOID_GROTTO);
     this->stateFlags2 &= ~(PLAYER_STATE2_SIDEHOP_BACKFLIP | PLAYER_STATE2_USING_OCARINA | PLAYER_STATE2_IDLE_FIDGET);
     this->stateFlags3 &= ~(PLAYER_STATE3_KNOCKBACK_JUMPSLASH | PLAYER_STATE3_MELEE_ATTACK | PLAYER_STATE3_FLYING_WITH_HOOKSHOT);
-=======
-    this->stateFlags1 &= ~(PLAYER_STATE1_HOOKSHOT_LAND | PLAYER_STATE1_TALKING | PLAYER_STATE1_26 | PLAYER_STATE1_28 |
-                           PLAYER_STATE1_29 | PLAYER_STATE1_31);
-    this->stateFlags2 &= ~(PLAYER_STATE2_19 | PLAYER_STATE2_USING_OCARINA | PLAYER_STATE2_IDLE_FIDGET);
-    this->stateFlags3 &= ~(PLAYER_STATE3_1 | PLAYER_STATE3_3 | PLAYER_STATE3_FLYING_WITH_HOOKSHOT);
->>>>>>> hookshot
 
     this->av1.actionVar1 = 0;
     this->av2.actionVar2 = 0;
@@ -3898,6 +3877,11 @@ void Player_DestroyHookshot(Player* this) {
     }
 }
 
+/**
+ * 1. Use an already held item.
+ * 2-1. Start the process to change held item to a new item.
+ * 2-2. During item change, set item action and held item action to match the new item.
+ */
 void Player_UseItem(PlayState* play, Player* this, s32 item) {
     s8 itemAction;
     s32 temp;
@@ -3910,6 +3894,11 @@ void Player_UseItem(PlayState* play, Player* this, s32 item) {
           (itemAction == PLAYER_IA_NONE))) ||
         ((this->itemAction < 0) && ((Player_ActionToMeleeWeapon(itemAction) != 0) || (itemAction == PLAYER_IA_NONE)))) {
 
+        //! @bug Quickdraw. When Player_UseItem is called the second time to set up the new item actions, if player has
+        //! entered water since starting the item change, this will not be run. The new item is now correctly the held item,
+        //! but IA and held IA are still from the previous item. This results in quickdraw.
+        //! It can be prevented by for example checking (this->stateFlags2 & PLAYER_STATE2_MAKING_NOISE), which will be set
+        //! by the function that calls Player_UseItem the second time.
         if ((itemAction == PLAYER_IA_NONE) || !(this->stateFlags1 & PLAYER_STATE1_IN_WATER) ||
             ((this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) &&
              ((itemAction == PLAYER_IA_HOOKSHOT) || (itemAction == PLAYER_IA_LONGSHOT)))) {
@@ -3971,6 +3960,9 @@ void Player_UseItem(PlayState* play, Player* this, s32 item) {
                     this->unk_6AD = 4;
                     this->itemAction = itemAction;
                 }
+            //! @bug Jumpslash quick putaway/QPA (NTSC 1.0 only). If held item was changed last frame, and player
+            //! uses the previous held item on the following frame, held IA has not changed yet. Using the old
+            //! held item will therefore not stop the item change in progress.
             } else if ((itemAction != this->heldItemAction) ||
                        ((this->heldActor == NULL) && (Player_ActionToExplosive(this, itemAction) >= 0))) {
                 // Handle using a new held item
@@ -4201,7 +4193,7 @@ s32 Player_ScaledStepBinangClamped(s16* pValue, s16 target, s16 step, s16 overfl
     return valueBeforeOverflowClamp - *pValue;
 }
 /**
- * @param arg1 if true usually because player is aiming ranged weapon or using hammer forward
+ * @param arg1 if true, usually because player is aiming ranged weapon or using hammer forward
  */
 s32 func_80836AB8(Player* this, s32 arg1) {
     s16 targetUpperBodyYaw;
@@ -4612,7 +4604,7 @@ static s8 sActionHandlerList11[] = {
 };
 
 s32 Player_ActionHandler_0(Player* this, PlayState* play);
-s32 Player_ActionHandler_1(Player* this, PlayState* play);
+s32 Player_ActionHandler_Doors(Player* this, PlayState* play);
 s32 Player_ActionHandler_GetItemLift(Player* this, PlayState* play);
 s32 Player_ActionHandler_MountHorse(Player* this, PlayState* play);
 s32 Player_ActionHandler_Talk(Player* this, PlayState* play);
@@ -4628,7 +4620,7 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play);
 
 static s32 (*sActionHandlerFuncs[])(Player* this, PlayState* play) = {
     Player_ActionHandler_0,                // PLAYER_ACTION_HANDLER_0
-    Player_ActionHandler_1,                // PLAYER_ACTION_HANDLER_1
+    Player_ActionHandler_Doors,                // PLAYER_ACTION_HANDLER_1
     Player_ActionHandler_GetItemLift,                // PLAYER_ACTION_HANDLER_2
     Player_ActionHandler_MountHorse,                // PLAYER_ACTION_HANDLER_3
     Player_ActionHandler_Talk,             // PLAYER_ACTION_HANDLER_TALK
@@ -5150,11 +5142,7 @@ void func_80837C0C(PlayState* play, Player* this, s32 hitResponseType, f32 speed
 
             damageAnim = sLinkDamageAnim;
 
-<<<<<<< HEAD
             Player_SetupAction(play, this, Player_Action_DamageReaction, 0);
-=======
-            Player_SetupAction(play, this, Player_Action_8084370C, 0);
->>>>>>> hookshot
             Player_ResetForwardFootWeight(this);
 
             if (this->actor.colChkInfo.damage < 5) {
@@ -5350,11 +5338,7 @@ s32 func_808382DC(Player* this, PlayState* play) {
                             Player_SetUpperActionFunc(this, Player_UpperAction_ShieldWaitForBlockAnim);
 
                             if (this->forwardFootWeight < 0.5f) {
-<<<<<<< HEAD
                                 anim = sBlockWithTarget_RightForward[Player_HoldsTwoHandedWeapon(this)];
-=======
-                                anim = D_808543BC[Player_HoldsTwoHandedWeapon(this)];
->>>>>>> hookshot
                             } else {
                                 anim = sBlockWithTarget_LeftForward[Player_HoldsTwoHandedWeapon(this)];
                             }
@@ -5869,7 +5853,7 @@ s32 Player_PosVsWallLineTest(PlayState* play, Player* this, Vec3f* offset, Colli
     return BgCheck_EntityLineTest1(&play->colCtx, &posA, &posB, posResult, wallPoly, true, false, false, true, bgId);
 }
 
-s32 Player_ActionHandler_1(Player* this, PlayState* play) {
+s32 Player_ActionHandler_Doors(Player* this, PlayState* play) {
     Actor* attachedActor;
     s32 pad3;
     s32 doorDirection;
@@ -6051,7 +6035,7 @@ s32 Player_ActionHandler_1(Player* this, PlayState* play) {
 }
 
 /**
- * Setup idle with hostile Z-target action, taking into account which foot
+ * Setup idle action with hostile Z-target, taking into account which foot
  * should be forward in the animation
  */
 void Player_SetupIdleHostileWithFootWeight(Player* this, PlayState* play) {
@@ -6080,7 +6064,7 @@ void Player_SetupIdleParallel(Player* this, PlayState* play) {
 
 /**
  * Sets up idle action depending on no target/parallel/hostile Z-target
- * by calling their setup functions that also set animations.
+ * by calling their setup functions, which also set animations.
  */
 void Player_SetupIdleDependingOnTargetWithAnim(Player* this, PlayState* play) {
     if (Player_CheckHostileLockOn(this)) {
@@ -6094,7 +6078,7 @@ void Player_SetupIdleDependingOnTargetWithAnim(Player* this, PlayState* play) {
 
 /**
  * Sets action function to idle function depending on no target/parallel/Z-target.
- * Does not setup animations.
+ * Does not setup animations!
  */
 void Player_SetupIdleDependingOnTarget(Player* this, PlayState* play) {
     PlayerActionFunc actionFunc;
@@ -6120,15 +6104,11 @@ void Player_SetupIdleDependingOnTarget2(Player* this, PlayState* play) {
 }
 
 /**
- * Setup idle depending on no target/parallel/Z-target and play an animation once.
+ * Setup idle depending on no target/parallel/Z-target and play a given animation once.
  */
 void Player_PlayAnimAndSetupIdle(Player* this, LinkAnimationHeader* anim, PlayState* play) {
     Player_SetupIdleDependingOnTarget2(this, play);
-<<<<<<< HEAD
     Player_AnimPlayOnceWaterSpeed(play, this, anim);
-=======
-    func_8083328C(play, this, anim);
->>>>>>> hookshot
 }
 
 /**
@@ -6448,6 +6428,8 @@ void func_8083AA10(Player* this, PlayState* play) {
 
 /**
  * Sets camera mode for first person, depending on what weapon is held if any.
+ * This causes the "flickering" with action swap with ranged items, as player
+ * cannot be first person with a non-ranged weapon.
  * @return new camera mode, CAM_MODE_NORMAL if failed
  */
 
@@ -6596,6 +6578,12 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
     GetItemEntry* giEntry;
     Actor* talkActor;
 
+    //! @bug If player is not on ground (or swimming/riding), ANIM_FLAG_OVERRIDE_MOVEMENT is set,
+    //! and player cannot move within the action, this will never be entered. If this handler was
+    //! called by Player_TryActionInterrupt (through Player_ActionHandler_0), the trying ends here
+    //! with an action interrupt as Player_ActionHandler_0 returns 1 as soon as this handler finishes.
+    //! This is part of ladder dismount cutscene softlock.
+    //! @see csAction part of Player_UpdateCommon, and Player_Action_DismountLadder for fix
     if ((this->unk_6AD != 0) &&
         (Player_SwimmingWithoutIronBoots(this) || (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
          (this->stateFlags1 & PLAYER_STATE1_RIDING))) {
@@ -6945,6 +6933,9 @@ void Player_SetupRoll(Player* this, PlayState* play) {
                                    FRAMERATE_CONST(1.25f, 1.5f) * sWaterSpeedFactor);
 }
 
+/**
+ * @return true if starting roll
+ */
 s32 Player_TryRoll(Player* this, PlayState* play) {
     if ((this->controlStickDirections[this->controlStickDataIndex] == PLAYER_STICK_DIR_FORWARD) &&
         (sFloorType != FLOOR_TYPE_7)) {
@@ -6974,7 +6965,7 @@ void Player_SidehopBackflip(Player* this, PlayState* play, s32 controlStickDirec
 }
 
 /**
- * Jumpslash, roll, sidehops backflips
+ * Jumpslash, roll, sidehops/backflips
  */
 s32 Player_ActionHandler_10(Player* this, PlayState* play) {
     s32 controlStickDirection;
@@ -6989,6 +6980,7 @@ s32 Player_ActionHandler_10(Player* this, PlayState* play) {
                 if (this->actor.category != ACTORCAT_PLAYER) {
                     if (controlStickDirection <= PLAYER_STICK_DIR_NONE) {
                         // Dark Link does not get here, because he would then jumpslash from air.
+                        // If spawned in an area with ledges, he might jump.
                         Player_SetupNotOnGroundWithState2(this, &gPlayerAnim_link_normal_jump, R_DARK_LINK_JUMP / 100.0f, play);
                     } else {
                         Player_SetupRoll(this, play);
@@ -7141,11 +7133,7 @@ s32 Player_ActionHandler_CrouchShield(Player* this, PlayState* play) {
                     // This can only be true for child Link with Hylian Shield, but unused_86C is unused.
                     this->unused_86C = 1.0f;
                 } else {
-<<<<<<< HEAD
                     this->unused_86C = 0.0f;
-=======
-                    this->unk_86C = 0.0f;
->>>>>>> hookshot
                     Player_ResetForwardFootWeight(this);
                 }
                 this->upperLimbRot.x = this->upperLimbRot.y = this->upperLimbRot.z = 0;
@@ -7308,6 +7296,9 @@ s32 Player_SetupBottleFishing(PlayState* play, Player* this) {
     return 0;
 }
 
+/**
+ * Setup non-target run/walk or parallel run/walk.
+ */
 void Player_SetupRunDependingOnTarget(Player* this, PlayState* play) {
     PlayerActionFunc actionFunc;
 
@@ -7399,6 +7390,7 @@ void Player_SetupSlowSidewalk(Player* this, PlayState* play) {
     Player_AnimChangeLoopMorph(play, this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_walk, this->modelAnimType));
 }
 
+// This function doesn't seem to get called
 void func_8083CBF0(Player* this, s16 yaw, PlayState* play) {
     Player_SetupAction(play, this, Player_Action_808423EC, 1);
     LinkAnimation_Change(play, &this->skelAnime, &gPlayerAnim_link_anchor_back_walk, 2.2f, 0.0f,
@@ -7413,6 +7405,7 @@ void Player_SetupFastSidewalk(Player* this, PlayState* play) {
     this->moveFrame = 0.0f;
 }
 
+// This function doesn't seem to get called
 void func_8083CD00(Player* this, PlayState* play) {
     Player_SetupAction(play, this, Player_Action_8084251C, 1);
     LinkAnimation_PlayOnceSetSpeed(play, &this->skelAnime, &gPlayerAnim_link_anchor_back_brake, 2.0f);
@@ -7451,7 +7444,7 @@ void Player_SetupIdleWithFootWeight(Player* this, PlayState* play) {
 void Player_SetupIdleHostile(Player* this, PlayState* play) {
     Player_SetupAction(play, this, Player_Action_IdleHostile, 1);
     Player_AnimChangeOnceMorph(play, this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_wait2waitR, this->modelAnimType));
-    this->av2.actionVar2 = 1; // Used by Player_Action_IdleHostile as a flag for animation in progress
+    this->av2.actionVar2 = 1; // Used by Player_Action_IdleHostile as a flag for loop once animation in progress
 }
 
 void Player_SetupIdleOrRunWithFootWeight(Player* this, PlayState* play) {
@@ -8724,15 +8717,9 @@ void Player_SetForwardFoot(Player* this, f32 speedTarget, s16 yawTarget) {
     Math_StepToF(&this->forwardFootWeight, this->forwardFoot, 0.3f);
 }
 
-<<<<<<< HEAD
 void Player_BlendIdleFootAnim(PlayState* play, Player* this) {
     LinkAnimation_BlendToJoint(play, &this->skelAnime, Player_SetIdleAnimRightForward(this), this->moveFrame,
                                Player_SetIdleAnimLeftForward(this), this->moveFrame, this->forwardFootWeight,
-=======
-void func_808401B0(PlayState* play, Player* this) {
-    LinkAnimation_BlendToJoint(play, &this->skelAnime, Player_SetIdleAnimRightForward(this), this->unk_868,
-                               Player_SetIdleAnimLeftForward(this), this->unk_868, this->forwardFootWeight,
->>>>>>> hookshot
                                this->blendTable);
 }
 
@@ -8751,17 +8738,13 @@ s32 Player_ShouldPlaySteppingSfx(f32 moveFrame, f32 speed, f32 frameCount, f32 t
     temp = (moveFrame + speed) - targetFrame;
 
     if (((temp * speed) >= 0.0f) && (((temp - speed) * speed) < 0.0f)) {
-<<<<<<< HEAD
         return 1;   // Play sound
-=======
-        return 1; // Play sound
->>>>>>> hookshot
     }
 
     return 0;
 }
 
-void func_8084029C(Player* this, f32 speed) {
+void Player_SetMoveFramePlaySfx(Player* this, f32 speed) {
     f32 updateScale = R_UPDATE_RATE * 0.5f;
 
     speed *= updateScale;
@@ -8778,12 +8761,7 @@ void func_8084029C(Player* this, f32 speed) {
         (this->hoverBootsTimer != 0)) {
         Actor_PlaySfx_Flagged2(&this->actor, NA_SE_PL_HOBBERBOOTS_LV - SFX_FLAG);
         // Play footsteps depending on frame position of the walk/run cycle
-<<<<<<< HEAD
     } else if (Player_ShouldPlaySteppingSfx(this->moveFrame, speed, 29.0f, 10.0f) || Player_ShouldPlaySteppingSfx(this->moveFrame, speed, 29.0f, 24.0f)) {
-=======
-    } else if (Player_ShouldPlaySteppingSfx(this->unk_868, speed, 29.0f, 10.0f) ||
-               Player_ShouldPlaySteppingSfx(this->unk_868, speed, 29.0f, 24.0f)) {
->>>>>>> hookshot
         Player_PlaySteppingSfx(this, this->speedXZ);
         // If running fast, certain enemies can detect us
         if (this->speedXZ > 4.0f) {
@@ -8791,7 +8769,6 @@ void func_8084029C(Player* this, f32 speed) {
         }
     }
 
-<<<<<<< HEAD
     this->moveFrame += speed;
 
     // Ensure that moveFrame is always between 0 and 29
@@ -8799,33 +8776,22 @@ void func_8084029C(Player* this, f32 speed) {
         this->moveFrame += 29.0f;
     } else if (this->moveFrame >= 29.0f) {
         this->moveFrame -= 29.0f;
-=======
-    this->unk_868 += speed;
-
-    // Ensure that unk_868 is always between 0 and 29
-    if (this->unk_868 < 0.0f) {
-        this->unk_868 += 29.0f;
-    } else if (this->unk_868 >= 29.0f) {
-        this->unk_868 -= 29.0f;
->>>>>>> hookshot
     }
 }
 
 /**
-<<<<<<< HEAD
- * Idle with hostile Z-target. Also used when standing shielding
-=======
- * Idle with hostile Z-target
->>>>>>> hookshot
+ * Idle with hostile Z-target. Also used when idle standing shielding
+ * regardless of parallel/target.
  */
 void Player_Action_IdleHostile(Player* this, PlayState* play) {
     f32 speedTarget;
     s16 yawTarget;
     s32 direction;
-    u32 temp2;
+    u32 curFrame;
     s16 yawDiff;
     s32 absDiff;
 
+    // Don't adjust yaw later in this function if just made melee attack (animation still playing)
     if (this->stateFlags3 & PLAYER_STATE3_MELEE_ATTACK) {
         if (Player_GetMeleeWeaponHeld(this) != 0) {
             this->stateFlags2 |= PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT;
@@ -8834,6 +8800,7 @@ void Player_Action_IdleHostile(Player* this, PlayState* play) {
         }
     }
 
+    // Ensure that any loop once-animation finishes before starting idle animation
     if (this->av2.actionVar2 != 0) {
         if (LinkAnimation_Update(play, &this->skelAnime)) {
             Player_FinishAnimMovement(this);
@@ -8849,50 +8816,50 @@ void Player_Action_IdleHostile(Player* this, PlayState* play) {
     Player_DecelerateToZero(this);
 
     if (!Player_TryActionHandlerList(play, this, sActionHandlerList1, true)) {
-<<<<<<< HEAD
+        // Check if target change
         if (!Player_UpdateHostileLockOn(this) && (!Player_FriendlyLockOnOrParallel(this) ||
                                                   (Player_UpperAction_ShieldWithTarget != this->upperActionFunc))) {
-=======
-        if (!Player_UpdateHostileLockOn(this) &&
-            (!Player_FriendlyLockOnOrParallel(this) || (func_80834B5C != this->upperActionFunc))) {
->>>>>>> hookshot
             Player_SetupIdleOrRunWithFootWeight(this, play);
             return;
         }
 
+        // Check movement direction, speed and yaw
         Player_GetMovementSpeedAndYaw(this, &speedTarget, &yawTarget, SPEED_MODE_LINEAR, play);
 
+        // This function doesn't seem to return anything but 0.
         direction = func_8083FC68(this, speedTarget, yawTarget);
 
-<<<<<<< HEAD
         if (direction > 0) {
-=======
-        if (temp1 > 0) {
->>>>>>> hookshot
             Player_SetupRunWithYawTarget(this, play, yawTarget);
             return;
         }
 
-        // Doesn't seem to happen?
         if (direction < 0) {
             func_8083CBF0(this, yawTarget, play);
             return;
         }
 
+        // If there is a hostile target this action function can only
+        // transition into this, no matter the movement direction.
         if (speedTarget > 4.0f) {
             Player_SetupFastSidewalk(this, play);
             return;
         }
 
-        func_8084029C(this, (this->speedXZ * 0.3f) + 1.0f);
+        Player_SetMoveFramePlaySfx(this, (this->speedXZ * 0.3f) + 1.0f);
         Player_SetForwardFoot(this, speedTarget, yawTarget);
 
-        temp2 = this->moveFrame;
-        if ((temp2 < 6) || ((temp2 - 14) < 6)) {
+        // In practice this makes player unable to move in this action 
+        // during moveFrame 0-5 and 14-19, making animation match movement.
+        curFrame = this->moveFrame;
+        if ((curFrame < 6) || ((curFrame - 14) < 6)) {
             Math_StepToF(&this->speedXZ, 0.0f, 1.5f);
             return;
         }
 
+        // If yawTarget differs greatly from yaw, snap to new yaw
+        // if able to zero speed. (Strafing around target, fighting enemies
+        // where possible to target with large angle difference)
         yawDiff = yawTarget - this->yaw;
         absDiff = ABS(yawDiff);
 
@@ -8903,21 +8870,18 @@ void Player_Action_IdleHostile(Player* this, PlayState* play) {
             return;
         }
 
+        // If correct frame and no yaw problems player can move slightly.
         Math_AsymStepToF(&this->speedXZ, speedTarget * 0.3f, 2.0f, 1.5f);
 
-<<<<<<< HEAD
-        // Don't adjust yaw if just made melee attack
+        // Small yaw adjustment, only if not ongoing melee attack animation
         if (!(this->stateFlags3 & PLAYER_STATE3_MELEE_ATTACK)) {
-=======
-        if (!(this->stateFlags3 & PLAYER_STATE3_3)) {
->>>>>>> hookshot
             Math_ScaledStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
         }
     }
 }
 
 /**
- * Idle in parallel
+ * Idle in parallel (without shielding)
  */
 void Player_Action_IdleParallel(Player* this, PlayState* play) {
     f32 speedTarget;
@@ -8934,6 +8898,7 @@ void Player_Action_IdleParallel(Player* this, PlayState* play) {
     Player_DecelerateToZero(this);
 
     if (!Player_TryActionHandlerList(play, this, sActionHandlerList2, true)) {
+        // Check for target change or shielding
         if (Player_UpdateHostileLockOn(this)) {
             Player_SetupIdleHostile(this, play);
             return;
@@ -8945,15 +8910,12 @@ void Player_Action_IdleParallel(Player* this, PlayState* play) {
             return;
         }
 
-<<<<<<< HEAD
         if (Player_UpperAction_ShieldWithTarget == this->upperActionFunc) {
-=======
-        if (func_80834B5C == this->upperActionFunc) {
->>>>>>> hookshot
             Player_SetupIdleHostile(this, play);
             return;
         }
 
+        // Check direction, speed and yaw
         Player_GetMovementSpeedAndYaw(this, &speedTarget, &yawTarget, SPEED_MODE_LINEAR, play);
 
         direction = func_8083FD78(this, &speedTarget, &yawTarget, play);
@@ -9073,6 +9035,9 @@ void Player_ChooseNextIdleAnim(PlayState* play, Player* this) {
                          Animation_GetLastFrame(anim), ANIMMODE_ONCE, -6.0f);
 }
 
+/**
+ * Standing still without Z-targeting. Also when taking fall damage.
+ */
 void Player_Action_Idle(Player* this, PlayState* play) {
     s32 idleAnimResult = Player_CheckForIdleAnim(this);
     s32 animFinished = LinkAnimation_Update(play, &this->skelAnime);
@@ -9085,8 +9050,10 @@ void Player_Action_Idle(Player* this, PlayState* play) {
     }
 
     if (animFinished) {
+        // Taking fall damage animation and stun
         if (this->av2.fallDamageStunTimer != 0) {
             if (DECR(this->av2.fallDamageStunTimer) == 0) {
+                // Remove animation finish status
                 this->skelAnime.endFrame = this->skelAnime.animLength - 1.0f;
             }
 
@@ -9104,6 +9071,7 @@ void Player_Action_Idle(Player* this, PlayState* play) {
 
     if (this->av2.fallDamageStunTimer == 0) {
         if (!Player_TryActionHandlerList(play, this, sActionHandlerListIdle, true)) {
+            // Check if started targeting
             if (Player_UpdateHostileLockOn(this)) {
                 Player_SetupIdleHostile(this, play);
                 return;
@@ -9114,6 +9082,8 @@ void Player_Action_Idle(Player* this, PlayState* play) {
                 return;
             }
 
+            // Check for speed/yaw change. Only one direction of movement possible
+            // because player is not targeting.
             Player_GetMovementSpeedAndYaw(this, &speedTarget, &yawTarget, SPEED_MODE_CURVED, play);
 
             if (speedTarget != 0.0f) {
@@ -9182,6 +9152,7 @@ void Player_Action_SlowSidewalk(Player* this, PlayState* play) {
     }
 
     if (!Player_TryActionHandlerList(play, this, sActionHandlerList3, true)) {
+        // Check for target change
         if (Player_UpdateHostileLockOn(this)) {
             Player_SetupIdleHostile(this, play);
             return;
@@ -9192,6 +9163,7 @@ void Player_Action_SlowSidewalk(Player* this, PlayState* play) {
             return;
         }
 
+        // Check direction, speed and yaw
         Player_GetMovementSpeedAndYaw(this, &speedTarget, &yawTarget, SPEED_MODE_LINEAR, play);
         forwardBackward = func_8083FD78(this, &speedTarget, &yawTarget, play);
 
@@ -9239,7 +9211,7 @@ void Player_SetBackwalkAnim(Player* this, PlayState* play) {
         s32 pad;
 
         temp1 = R_UPDATE_RATE * 0.5f;
-        func_8084029C(this, REG(35) / 1000.0f);
+        Player_SetMoveFramePlaySfx(this, REG(35) / 1000.0f);
         LinkAnimation_LoadToJoint(play, &this->skelAnime,
                                   GET_PLAYER_ANIM(PLAYER_ANIMGROUP_back_walk, this->modelAnimType), this->moveFrame);
         this->unk_864 += 1 * temp1;
@@ -9251,16 +9223,16 @@ void Player_SetBackwalkAnim(Player* this, PlayState* play) {
         temp2 = this->speedXZ - (REG(48) / 100.0f);
         if (temp2 < 0.0f) {
             temp1 = 1.0f;
-            func_8084029C(this, (REG(35) / 1000.0f) + ((REG(36) / 1000.0f) * this->speedXZ));
+            Player_SetMoveFramePlaySfx(this, (REG(35) / 1000.0f) + ((REG(36) / 1000.0f) * this->speedXZ));
             LinkAnimation_LoadToJoint(play, &this->skelAnime,
                                       GET_PLAYER_ANIM(PLAYER_ANIMGROUP_back_walk, this->modelAnimType), this->moveFrame);
         } else {
             temp1 = (REG(37) / 1000.0f) * temp2;
             if (temp1 < 1.0f) {
-                func_8084029C(this, (REG(35) / 1000.0f) + ((REG(36) / 1000.0f) * this->speedXZ));
+                Player_SetMoveFramePlaySfx(this, (REG(35) / 1000.0f) + ((REG(36) / 1000.0f) * this->speedXZ));
             } else {
                 temp1 = 1.0f;
-                func_8084029C(this, 1.2f + ((REG(38) / 1000.0f) * temp2));
+                Player_SetMoveFramePlaySfx(this, 1.2f + ((REG(38) / 1000.0f) * temp2));
             }
             LinkAnimation_LoadToMorph(play, &this->skelAnime,
                                       GET_PLAYER_ANIM(PLAYER_ANIMGROUP_back_walk, this->modelAnimType), this->moveFrame);
@@ -9320,6 +9292,7 @@ void Player_Action_Backwalk(Player* this, PlayState* play) {
         Player_GetMovementSpeedAndYaw(this, &speedTarget, &yawTarget, SPEED_MODE_LINEAR, play);
         direction = func_8083FD78(this, &speedTarget, &yawTarget, play);
 
+        // Check direction and speed
         if (direction >= 0) {
             if (!Player_HasStoppedBackwalk(this, &speedTarget, &yawTarget, play)) {
                 if (direction != 0) {
@@ -9331,6 +9304,7 @@ void Player_Action_Backwalk(Player* this, PlayState* play) {
                 }
             }
         } else {
+            // Update speed and yaw
             s16 yawDiff = yawTarget - this->yaw;
 
             Math_AsymStepToF(&this->speedXZ, speedTarget * 1.5f, 1.5f, 2.0f);
@@ -9397,19 +9371,15 @@ void Player_AnimateFastSidewalk(PlayState* play, Player* this) {
 
     this->skelAnime.animation = leftAnim;
 
-    func_8084029C(this, (REG(30) / 1000.0f) + ((REG(32) / 1000.0f) * this->speedXZ));
+    Player_SetMoveFramePlaySfx(this, (REG(30) / 1000.0f) + ((REG(32) / 1000.0f) * this->speedXZ));
 
-<<<<<<< HEAD
     frame = this->moveFrame * (16.0f / 29.0f);
-=======
-    frame = this->unk_868 * (16.0f / 29.0f);
->>>>>>> hookshot
     LinkAnimation_BlendToJoint(play, &this->skelAnime, rightAnim, frame, leftAnim, frame, this->forwardFootWeight,
                                this->blendTable);
 }
 
 /**
- * Fast sidewalk used with Z-target and in parallel
+ * Fast sidewalk used in parallel and as main movement with hostile Z-target
  */
 void Player_Action_FastSidewalk(Player* this, PlayState* play) {
     f32 speedTarget;
@@ -9575,7 +9545,7 @@ void Player_SetRunWalkAnim(Player* this, PlayState* play) {
 
         temp1 = R_UPDATE_RATE * 0.5f;
 
-        func_8084029C(this, REG(35) / 1000.0f);
+        Player_SetMoveFramePlaySfx(this, REG(35) / 1000.0f);
         LinkAnimation_LoadToJoint(play, &this->skelAnime, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_walk, this->modelAnimType),
                                   this->moveFrame);
 
@@ -9590,16 +9560,16 @@ void Player_SetRunWalkAnim(Player* this, PlayState* play) {
 
         if (temp2 < 0.0f) {
             temp1 = 1.0f;
-            func_8084029C(this, (REG(35) / 1000.0f) + ((REG(36) / 1000.0f) * this->speedXZ));
+            Player_SetMoveFramePlaySfx(this, (REG(35) / 1000.0f) + ((REG(36) / 1000.0f) * this->speedXZ));
 
             func_80841CC4(this, 0, play);
         } else {
             temp1 = (REG(37) / 1000.0f) * temp2;
             if (temp1 < 1.0f) {
-                func_8084029C(this, (REG(35) / 1000.0f) + ((REG(36) / 1000.0f) * this->speedXZ));
+                Player_SetMoveFramePlaySfx(this, (REG(35) / 1000.0f) + ((REG(36) / 1000.0f) * this->speedXZ));
             } else {
                 temp1 = 1.0f;
-                func_8084029C(this, 1.2f + ((REG(38) / 1000.0f) * temp2));
+                Player_SetMoveFramePlaySfx(this, 1.2f + ((REG(38) / 1000.0f) * temp2));
             }
 
             func_80841CC4(this, 1, play);
@@ -9678,6 +9648,7 @@ void Player_Action_RunWalkParallel(Player* this, PlayState* play) {
     }
 }
 
+// This action doesn't seem to get set
 void Player_Action_808423EC(Player* this, PlayState* play) {
     s32 animFinished = LinkAnimation_Update(play, &this->skelAnime);
     f32 speedTarget;
@@ -9706,6 +9677,7 @@ void Player_Action_808423EC(Player* this, PlayState* play) {
     }
 }
 
+// This action doesn't seem to get set
 void Player_Action_8084251C(Player* this, PlayState* play) {
     s32 animFinished = LinkAnimation_Update(play, &this->skelAnime);
     f32 speedTarget;
@@ -9833,7 +9805,8 @@ void Player_HammerHitEffects(PlayState* play, Player* this) {
 void Player_DecreaseStickUseNone(PlayState* play, Player* this) {
     //! @bug Broken Deku Stick. Player_UseItem will set PLAYER_STATE1_START_CHANGING_HELD_ITEM
     //! but if the change is delayed (such as break during jumpslash), if Player_SetupAction
-    //! is called it will remove the change item state before the item change is done.
+    //! is called it will remove the change item state before the item change is finished.
+    //! Held item will be none but IA and held IA will be Deku Stick.
     Inventory_ChangeAmmo(ITEM_DEKU_STICK, -1);
     Player_UseItem(play, this, ITEM_NONE);
 }
@@ -9843,7 +9816,7 @@ void Player_DecreaseStickUseNone(PlayState* play, Player* this) {
  * @return 1 if holding full-length Deku Stick, otherwise 0
  */
 s32 Player_BreakDekuStick(PlayState* play, Player* this) {
-    // Holding full length Deku Stick
+    // unk_85C >0.5f is holding full length Deku Stick
     //! @bug Broken Deku Stick cannot break. Presumably leftover from earlier development.
     if ((this->heldItemAction == PLAYER_IA_DEKU_STICK) && (this->unk_85C > 0.5f)) {
         if (AMMO(ITEM_DEKU_STICK) != 0) {
@@ -9953,15 +9926,14 @@ s32 Player_CheckMeleeInterrupt(PlayState* play, Player* this) {
                     lineBase.z = MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0])->z + (baseToTip.z * weaponLengthFactor);
 
                     // If attack hit a surface
+                    //! @bug FLOOR_TYPE_6 (no fall damage), for instance Gerudo Fortress exterior walking areas,
+                    //! causes melee weapon to not collide properly, such as Hammer vs the Gerudo staircase
+                    //! (continues through the floor).
                     if (BgCheck_EntityLineTest1(&play->colCtx, &lineBase, MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0]),
                                                 &posCollision, &groundPoly, true, false, false, true, &bgId) &&
                         !SurfaceType_IsIgnoredByEntities(&play->colCtx, groundPoly, bgId) &&
                         (SurfaceType_GetFloorType(&play->colCtx, groundPoly, bgId) != FLOOR_TYPE_6) &&
-<<<<<<< HEAD
                         (Actor_HitJabuSurface(play, &this->actor, groundPoly, bgId, &posCollision) == 0)) {
-=======
-                        (Actor_HitJabuSurface(play, &this->actor, groundPoly, bgId, &sp5C) == 0)) {
->>>>>>> hookshot
 
                         // If Hammer, interrupt attack
                         if (this->heldItemAction == PLAYER_IA_HAMMER) {
@@ -10132,13 +10104,8 @@ void Player_Action_ShieldCrouch(Player* this, PlayState* play) {
                     if (this->itemAction < 0) { // Shielding sets IA -1
                         func_8008EC70(this);
                     }
-<<<<<<< HEAD
                     Player_PlayAnimAndSetupIdle(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_defense_end, this->modelAnimType),
                                              play);
-=======
-                    Player_PlayAnimAndSetupIdle(
-                        this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_defense_end, this->modelAnimType), play);
->>>>>>> hookshot
                 }
 
                 Player_PlaySfx(this, NA_SE_IT_SHIELD_REMOVE);
@@ -10165,9 +10132,9 @@ void Player_Action_ShieldBlock(Player* this, PlayState* play) {
     f32 frames;
 
     //! @bug This action is set by a general handling function and not by another action.
-    //! Neither this or that function make sure to reset states that are incompatible
-    //! with shielding and not reset by Player_SetupAction, such as PLAYER_STATE1_CARRYING_ACTOR
-    //! or PLAYER_STATE1_CLIMB_JUMP_UP, or melee weapon state.
+    //! Neither this or calling function make sure to reset states that are incompatible
+    //! with shielding and not reset by Player_SetupAction, such as PLAYER_STATE1_CARRYING_ACTOR,
+    //! PLAYER_STATE1_CLIMB_JUMP_UP, or meleeWeaponState.
     //! This is part of groundjump, ledge cancel, damage ISG and down A respectively.
 
     Player_DecelerateToZero(this);
@@ -10178,10 +10145,7 @@ void Player_Action_ShieldBlock(Player* this, PlayState* play) {
 
         if ((Player_UpperAction_ShieldWithTarget == this->upperActionFunc) ||
             (Player_TryActionInterrupt(play, this, &this->upperSkelAnime, 4.0f) >= PLAYER_INTERRUPT_MOVE)) {
-<<<<<<< HEAD
             // Player may be shielding in parallel but this will always be the following action
-=======
->>>>>>> hookshot
             Player_SetupAction(play, this, Player_Action_IdleHostile, 1);
         }
     } else {
@@ -10211,6 +10175,7 @@ void Player_Action_ShieldBlock(Player* this, PlayState* play) {
 
 /**
  * Taking damage when not running
+ * This action is setup early in the frame, before the previous action runs.
  */
 void Player_Action_DamageReaction(Player* this, PlayState* play) {
     s32 interruptResult;
@@ -10436,7 +10401,7 @@ static FallImpactInfo D_80854600[] = {
     { -16, 255, 140, 150, NA_SE_VO_LI_LAND_DAMAGE_S },
 };
 
-s32 func_80843E64(PlayState* play, Player* this) {
+s32 Player_SetFallDamage(PlayState* play, Player* this) {
     s32 fallDistance;
 
     if ((sFloorType == FLOOR_TYPE_6) || (sFloorType == FLOOR_TYPE_9)) {
@@ -10501,7 +10466,7 @@ void Player_ThrowCarriedActor(PlayState* play, Player* this, f32 speedXZ, f32 ve
         heldActor->world.rot.y = this->actor.shape.rot.y;
         heldActor->speed = speedXZ;
         heldActor->velocity.y = velocityY;
-        func_80834644(play, this);
+        Player_SetUpperIA(play, this);
         Player_PlaySfx(this, NA_SE_PL_THROW);
         Player_PlayVoiceSfx(this, NA_SE_VO_LI_SWORD_N);
     }
@@ -10533,7 +10498,7 @@ void Player_Action_NotOnGround(Player* this, PlayState* play) {
             //! waiting for putaway to pick up the bomb/other actor, and is not removed when
             //! player blocks damage (Player_Action_ShieldBlock). When doing a sidehop/backflip,
             //! PLAYER_STATE2_SIDEHOP_BACKFLIP is set which prohibits grabbing ledges.
-            //! However, when groundjumping, this is run and Player_ActorIsNull calls setup function
+            //! However, when groundjumping, this below is run and Player_ActorIsNull calls setup function
             //! for idle parallel. This function sets yaw = shape.rot.y, so player will now be
             //! moving forward.
             //! Player_SetupAction then removes PLAYER_STATE2_SIDEHOP_BACKFLIP (even though
@@ -10626,7 +10591,7 @@ void Player_Action_NotOnGround(Player* this, PlayState* play) {
             return;
         }
 
-        sp3C = func_80843E64(play, this);
+        sp3C = Player_SetFallDamage(play, this);
 
         if (sp3C > 0) {
             Player_PlayAnimAndSetupIdle(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_landing, this->modelAnimType), play);
@@ -10767,6 +10732,9 @@ void Player_Action_Jumpdive(Player* this, PlayState* play) {
     }
 }
 
+/**
+ * Jumpslash action, whether on ground or from height.
+ */
 void Player_Action_Jumpslash(Player* this, PlayState* play) {
     f32 speedTarget;
     s16 yawTarget;
@@ -10785,7 +10753,7 @@ void Player_Action_Jumpslash(Player* this, PlayState* play) {
             return;
         }
 
-        if (func_80843E64(play, this) >= 0) {
+        if (Player_SetFallDamage(play, this) >= 0) {
             this->meleeWeaponAnimation += 2;
             Player_SetupMeleeAttack(play, this, this->meleeWeaponAnimation);
             this->tripleSlashCount = 3;
@@ -10834,7 +10802,6 @@ void Player_SetupSpinChargeLeftRight(Player* this, PlayState* play) {
     Player_SetupAction(play, this, Player_Action_ChargeSpinAttackLeftRight, 1);
 }
 
-<<<<<<< HEAD
 /**
  * Aborting a spin attack before it can release even into a non-magic spin
  */
@@ -10842,12 +10809,6 @@ void Player_AbortSpinAttackCharge(Player* this, PlayState* play) {
     Player_SetupIdleDependingOnTarget(this, play);
     Player_InactivateMeleeWeapon(this);
     Player_AnimChangeOnceMorph(play, this, sEndSpinCharge[Player_HoldsTwoHandedWeapon(this)]);
-=======
-void func_80844D68(Player* this, PlayState* play) {
-    Player_SetupIdleDependingOnTarget(this, play);
-    func_80832318(this);
-    Player_AnimChangeOnceMorph(play, this, D_80854368[Player_HoldsTwoHandedWeapon(this)]);
->>>>>>> hookshot
     this->yaw = this->actor.shape.rot.y;
 }
 
@@ -10935,7 +10896,7 @@ void Player_Action_ChargeSpinAttackForwardBack(Player* this, PlayState* play) {
 
     sp58 = ((temp2 < 0x4000) ? -1.0f : 1.0f) * sp58;
 
-    func_8084029C(this, sp58);
+    Player_SetMoveFramePlaySfx(this, sp58);
 
     sp58 = CLAMP(sp5C * 0.5f, 0.5f, 1.0f);
 
@@ -10997,13 +10958,13 @@ void Player_Action_ChargeSpinAttackLeftRight(Player* this, PlayState* play) {
         if (absSpeed < 400.0f) {
             absSpeed = 0.0f;
         }
-        func_8084029C(this, ((this->unk_87C >= 0) ? 1 : -1) * absSpeed);
+        Player_SetMoveFramePlaySfx(this, ((this->unk_87C >= 0) ? 1 : -1) * absSpeed);
     } else {
         sp58 = absSpeed * 1.5f;
         if (sp58 < 1.5f) {
             sp58 = 1.5f;
         }
-        func_8084029C(this, sp58);
+        Player_SetMoveFramePlaySfx(this, sp58);
     }
 
     sp58 = CLAMP(absSpeed * 0.5f, 0.5f, 1.0f);
@@ -11049,7 +11010,7 @@ void Player_Action_ChargeSpinAttackLeftRight(Player* this, PlayState* play) {
 }
 
 /**
- * Used for jumping to grab a ledge from ground and water. When directly climbing up
+ * Used for jumping to grab a ledge from ground and water. When directly climbing up,
  * this action covers the entire movement. If jumping followed by hanging,
  * a different action follows after the jump.
  */
@@ -11085,7 +11046,7 @@ void Player_Action_JumpUpWaterClimb(Player* this, PlayState* play) {
             Player_SetupNotOnGroundWithState(this, NULL, speed, play, NA_SE_VO_LI_AUTO_JUMP);
             this->av2.actionVar2 = -1;
         }
-    } else { // Smaller jumps that directly lead to standing
+    } else { // Smaller jumps that directly lead to climbing up and standing
         interruptResult = Player_TryActionInterrupt(play, this, &this->skelAnime, 4.0f);
 
         if (interruptResult == PLAYER_INTERRUPT_NEW_ACTION) {
@@ -11094,13 +11055,8 @@ void Player_Action_JumpUpWaterClimb(Player* this, PlayState* play) {
         }
 
         if (animFinished || (interruptResult >= PLAYER_INTERRUPT_MOVE)) {
-<<<<<<< HEAD
             Player_SetupIdlePlayOnce(this, play); // Finished
             this->stateFlags1 &= ~(PLAYER_STATE1_CLIMB_JUMP_UP | PLAYER_STATE1_18);
-=======
-            Player_SetupIdlePlayOnce(this, play);
-            this->stateFlags1 &= ~(PLAYER_STATE1_14 | PLAYER_STATE1_18);
->>>>>>> hookshot
             return;
         }
 
@@ -11337,11 +11293,7 @@ void Player_Action_LiftActor(Player* this, PlayState* play) {
     // When lift animation is finished, set carry upper action
     if (LinkAnimation_Update(play, &this->skelAnime)) {
         Player_SetupIdleDependingOnTargetWithAnim(this, play);
-<<<<<<< HEAD
         Player_SetupUpperActionCarryActor(this, play);
-=======
-        func_80835688(this, play);
->>>>>>> hookshot
     } else if (LinkAnimation_OnFrame(&this->skelAnime, 4.0f)) {
         Actor* interactRangeActor = this->interactRangeActor;
 
@@ -11440,7 +11392,7 @@ void Player_Action_ThrowSilverRock(Player* this, PlayState* play) {
         heldActor->world.rot.y = this->actor.shape.rot.y;
         heldActor->speed = 10.0f;
         heldActor->velocity.y = 20.0f;
-        func_80834644(play, this);
+        Player_SetUpperIA(play, this);
         Player_PlaySfx(this, NA_SE_PL_THROW);
         Player_PlayVoiceSfx(this, NA_SE_VO_LI_SWORD_N);
     }
@@ -11482,7 +11434,8 @@ void Player_Action_DropCarriedActor(Player* this, PlayState* play) {
         if (!Player_ActorIsNull(play, this, heldActor)) {
             heldActor->velocity.y = 0.0f;
             heldActor->speed = 0.0f;
-            func_80834644(play, this);
+            Player_SetUpperIA(play, this);
+            // Force player into first person if dropping a Bombchu
             if (heldActor->id == ACTOR_EN_BOM_CHU) {
                 Player_SetFirstPersonUnarmed(this, play);
             }
@@ -11508,7 +11461,7 @@ void Player_Action_ThrowCarriedActor(Player* this, PlayState* play) {
     }
 }
 
-static ColliderCylinderInit D_80854624 = {
+static ColliderCylinderInit sBodyCylinderInit = {
     {
         COL_MATERIAL_HIT5,
         AT_NONE,
@@ -11528,7 +11481,7 @@ static ColliderCylinderInit D_80854624 = {
     { 12, 60, 0, { 0, 0, 0 } },
 };
 
-static ColliderQuadInit D_80854650 = {
+static ColliderQuadInit sMeleeQuadInit = {
     {
         COL_MATERIAL_NONE,
         AT_ON | AT_TYPE_PLAYER,
@@ -11548,7 +11501,7 @@ static ColliderQuadInit D_80854650 = {
     { { { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } } },
 };
 
-static ColliderQuadInit D_808546A0 = {
+static ColliderQuadInit sShieldQuadInit = {
     {
         COL_MATERIAL_METAL,
         AT_ON | AT_TYPE_PLAYER,
@@ -11611,7 +11564,7 @@ void Player_PutSwordInHand(PlayState* play, Player* this, s32 playSfx) {
     this->nextModelGroup = Player_ActionToModelGroup(this, swordItemAction);
 
     Player_InitItemAction(play, this, swordItemAction);
-    func_80834644(play, this);
+    Player_SetUpperIA(play, this);
 
     if (playSfx) {
         Player_PlaySfx(this, NA_SE_IT_SWORD_PICKOUT);
@@ -11697,7 +11650,7 @@ void Player_InitCommon(Player* this, PlayState* play, FlexSkeletonHeader* skelHe
     Actor_ProcessInitChain(&this->actor, sInitChain);
     this->meleeWeaponEffectIndex = TOTAL_EFFECT_COUNT;
     this->yaw = this->actor.world.rot.y;
-    func_80834644(play, this);
+    Player_SetUpperIA(play, this);
 
     SkelAnime_InitLink(play, &this->skelAnime, skelHeader, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_wait, this->modelAnimType),
                        9, this->jointTable, this->morphTable, PLAYER_LIMB_MAX);
@@ -11711,13 +11664,13 @@ void Player_InitCommon(Player* this, PlayState* play, FlexSkeletonHeader* skelHe
     this->subCamId = CAM_ID_NONE;
 
     Collider_InitCylinder(play, &this->cylinder);
-    Collider_SetCylinder(play, &this->cylinder, &this->actor, &D_80854624);
+    Collider_SetCylinder(play, &this->cylinder, &this->actor, &sBodyCylinderInit);
     Collider_InitQuad(play, &this->meleeWeaponQuads[0]);
-    Collider_SetQuad(play, &this->meleeWeaponQuads[0], &this->actor, &D_80854650);
+    Collider_SetQuad(play, &this->meleeWeaponQuads[0], &this->actor, &sMeleeQuadInit);
     Collider_InitQuad(play, &this->meleeWeaponQuads[1]);
-    Collider_SetQuad(play, &this->meleeWeaponQuads[1], &this->actor, &D_80854650);
+    Collider_SetQuad(play, &this->meleeWeaponQuads[1], &this->actor, &sMeleeQuadInit);
     Collider_InitQuad(play, &this->shieldQuad);
-    Collider_SetQuad(play, &this->shieldQuad, &this->actor, &D_808546A0);
+    Collider_SetQuad(play, &this->shieldQuad, &this->actor, &sShieldQuadInit);
 }
 
 static void (*sStartModeFuncs[PLAYER_START_MODE_MAX])(PlayState* play, Player* this) = {
@@ -12318,7 +12271,7 @@ void Player_ProcessSceneCollision(PlayState* play, Player* this) {
                     this->yDistToLedge = LEDGE_DIST_MAX;
                     //! @bug For child wall check radius is 14.0 and wall check height is 26.0.
                     //! Sphere collision check will collide with walls with heights down to around 17.0.
-                    //! Therefore, at yDistToLedge 17.0-18.0 there is a gap where child cannot jump
+                    //! Therefore, at yDistToLedge around 17.0-18.0 there is a gap where child cannot jump
                     //! and cannot run over the ledge, but also cannot grab. See: Kokiri Forest ramp to sword. 
                 } else {
                     sInteractWallCheckOffset.y = (ledgePosY + 5.0f) - this->actor.world.pos.y;
@@ -13024,7 +12977,6 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
             this->stateFlags2 &= ~(PLAYER_STATE2_CAN_ACCEPT_TALK_OFFER | PLAYER_STATE2_NAVI_TALK_AVAILABLE);
         }
 
-<<<<<<< HEAD
         this->stateFlags1 &= ~(PLAYER_STATE1_SWINGING_BOTTLE | PLAYER_STATE1_RANGED_WEAPON_LOADED |
                                PLAYER_STATE1_CHARGING_SPIN_ATTACK | PLAYER_STATE1_SHIELDING);
         this->stateFlags2 &=
@@ -13032,15 +12984,6 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
               PLAYER_STATE2_PUSH_PULL_CAMERA | PLAYER_STATE2_FORCE_SAND_FLOOR_SOUND | PLAYER_STATE2_CLIMB_STILL | PLAYER_STATE2_FROZEN |
               PLAYER_STATE2_DO_ACTION_ENTER | PLAYER_STATE2_CAN_HORSE_DISMOUNT | PLAYER_STATE2_DARK_LINK_ROOM_SHADOW);
         this->stateFlags3 &= ~PLAYER_STATE3_CHECK_GROUND_COLLISION;
-=======
-        this->stateFlags1 &= ~(PLAYER_STATE1_SWINGING_BOTTLE | PLAYER_STATE1_9 | PLAYER_STATE1_CHARGING_SPIN_ATTACK |
-                               PLAYER_STATE1_SHIELDING);
-        this->stateFlags2 &=
-            ~(PLAYER_STATE2_0 | PLAYER_STATE2_2 | PLAYER_STATE2_MAKING_NOISE | PLAYER_STATE2_5 | PLAYER_STATE2_6 |
-              PLAYER_STATE2_8 | PLAYER_STATE2_FORCE_SAND_FLOOR_SOUND | PLAYER_STATE2_12 | PLAYER_STATE2_14 |
-              PLAYER_STATE2_DO_ACTION_ENTER | PLAYER_STATE2_22 | PLAYER_STATE2_26);
-        this->stateFlags3 &= ~PLAYER_STATE3_4;
->>>>>>> hookshot
 
         func_80847298(this);
         Player_ProcessControlStick(play, this);
@@ -14126,6 +14069,11 @@ void Player_Action_DismountLadder(Player* this, PlayState* play) {
 
     interruptResult = Player_TryActionInterrupt(play, this, &this->skelAnime, 4.0f);
 
+    //! @bug Ladder dismount cutscene softlock. Player_TryActionInterrupt will always return true in cutscene
+    //! as AH 0 calls AH 13 (due to unk_6AD > 0) and then returns true. This both removes PLAYER_STATE1_CLIMBING
+    //! below, which causes Player_UpdateCommon to continuously set unk_6AD to 3, and causes the final
+    //! LinkAnimation_Update (that normally exits the action and sets idle action) to never run.
+    //! Adding `&& this->unk_6AD != 3` prevents this softlock, as the animation update can play.
     if (interruptResult == PLAYER_INTERRUPT_NEW_ACTION) {
         this->stateFlags1 &= ~PLAYER_STATE1_CLIMBING;
         return;
@@ -14133,11 +14081,7 @@ void Player_Action_DismountLadder(Player* this, PlayState* play) {
 
     if ((interruptResult >= PLAYER_INTERRUPT_MOVE) || LinkAnimation_Update(play, &this->skelAnime)) {
         Player_SetupIdlePlayOnce(this, play);
-<<<<<<< HEAD
         this->stateFlags1 &= ~PLAYER_STATE1_CLIMBING;
-=======
-        this->stateFlags1 &= ~PLAYER_STATE1_21;
->>>>>>> hookshot
         return;
     }
 
@@ -14425,7 +14369,7 @@ void Player_Action_HorseRiding(Player* this, PlayState* play) {
             this->skelAnime.animation = D_80854944[this->av2.actionVar2 - 2];
             Animation_SetMorph(play, &this->skelAnime, 8.0f);
             if (this->av2.actionVar2 < 4) {
-                func_80834644(play, this);
+                Player_SetUpperIA(play, this);
                 this->av1.actionVar1 = 0;
             }
         }
@@ -14563,11 +14507,7 @@ void Player_Action_HorseDismount(Player* this, PlayState* play) {
         EnHorse* rideActor = (EnHorse*)this->rideActor;
 
         Player_SetupIdlePlayOnce(this, play);
-<<<<<<< HEAD
         this->stateFlags1 &= ~PLAYER_STATE1_RIDING;
-=======
-        this->stateFlags1 &= ~PLAYER_STATE1_23;
->>>>>>> hookshot
         this->actor.parent = NULL;
         R_EXITED_SCENE_RIDING_HORSE = false;
 
@@ -14635,11 +14575,7 @@ void Player_Action_WaterIdle(Player* this, PlayState* play) {
             yawTarget = this->actor.shape.rot.y;
             if (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) {
                 Player_PlayAnimAndSetupIdle(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_short_landing, this->modelAnimType),
-<<<<<<< HEAD
                                          play);
-=======
-                                            play);
->>>>>>> hookshot
                 Player_PlayLandingSfx(this);
             }
         } else {
@@ -15034,10 +14970,7 @@ void Player_Action_ThrowDekuNut(Player* this, PlayState* play) {
     // Finished throw animation, setup exit
     if (LinkAnimation_Update(play, &this->skelAnime)) {
         Player_PlayAnimAndSetupIdle(this, &gPlayerAnim_link_normal_light_bom_end, play);
-<<<<<<< HEAD
     // Spawn nut, sound on animation frame
-=======
->>>>>>> hookshot
     } else if (LinkAnimation_OnFrame(&this->skelAnime, 3.0f)) {
         Inventory_ChangeAmmo(ITEM_DEKU_NUT, -1);
         Actor_Spawn(&play->actorCtx, play, ACTOR_EN_ARROW, this->bodyPartsPos[PLAYER_BODYPART_R_HAND].x,
@@ -15447,15 +15380,9 @@ void Player_Action_Grabbed(Player* this, PlayState* play) {
         Player_AnimPlayLoop(play, this, &gPlayerAnim_link_normal_re_dead_attack_wait);
     }
 
-<<<<<<< HEAD
     if (Player_TryBreakingFree(this, 0, 100)) {
         Player_SetupIdleDependingOnTargetWithAnim(this, play);
         this->stateFlags2 &= ~PLAYER_STATE2_GRABBED;
-=======
-    if (func_80832594(this, 0, 100)) {
-        Player_SetupIdleDependingOnTargetWithAnim(this, play);
-        this->stateFlags2 &= ~PLAYER_STATE2_7;
->>>>>>> hookshot
     }
 }
 
@@ -15622,7 +15549,7 @@ void Player_Action_VoidEnterGrotto(Player* this, PlayState* play) {
  * Note: If no door is in useable range, a softlock will occur.
  */
 void Player_Action_TryOpeningDoor(Player* this, PlayState* play) {
-    Player_ActionHandler_1(this, play);
+    Player_ActionHandler_Doors(this, play);
 }
 
 /**
@@ -15932,11 +15859,7 @@ void Player_Action_MeleeAttack(Player* this, PlayState* play) {
                     postAttackAnim = &gPlayerAnim_link_fighter_power_jump_kiru_end;
                 }
 
-<<<<<<< HEAD
                 Player_PlayAnimAndSetupIdle(this, postAttackAnim, play); // Play animation + set new action function
-=======
-                Player_PlayAnimAndSetupIdle(this, sp3C, play);
->>>>>>> hookshot
 
                 this->skelAnime.movementFlags = saveFlags;
                 this->stateFlags3 |= PLAYER_STATE3_MELEE_ATTACK;
@@ -16188,13 +16111,8 @@ void Player_Action_HookshotFly(Player* this, PlayState* play) {
         this->actor.world.pos.y -= yDiff; // Put player slightly below attach point
         this->speedXZ = 1.0f;
         this->actor.velocity.y = 0.0f;
-<<<<<<< HEAD
         Player_SetupNotOnGroundWithAV(this, play); // Assume player is falling down
         this->stateFlags2 &= ~PLAYER_STATE2_DEEP_WATER;
-=======
-        func_80837B9C(this, play); // Assume player is falling down
-        this->stateFlags2 &= ~PLAYER_STATE2_10;
->>>>>>> hookshot
         this->actor.bgCheckFlags |= BGCHECKFLAG_GROUND;
         this->stateFlags1 |= PLAYER_STATE1_HOOKSHOT_LAND;
     } else if ((this->skelAnime.animation != &gPlayerAnim_link_hook_fly_start) || (4.0f <= this->skelAnime.curFrame)) {
@@ -16239,17 +16157,10 @@ void Player_Action_FishingCastReel(Player* this, PlayState* play) {
 
     Player_DecelerateToZero(this);
 
-<<<<<<< HEAD
     if (this->unk_860 == 0) { // no catch
         Player_SetupIdleOnceMorph(this, play);
     } else if (this->unk_860 == 3) { // catch
         Player_SetupAction(play, this, Player_Action_FishingHoldingCatch, 0);
-=======
-    if (this->unk_860 == 0) {
-        Player_SetupIdleOnceMorph(this, play);
-    } else if (this->unk_860 == 3) {
-        Player_SetupAction(play, this, Player_Action_80850E84, 0);
->>>>>>> hookshot
         Player_AnimChangeOnceMorph(play, this, &gPlayerAnim_link_fishing_fish_catch);
     }
 }
@@ -17417,12 +17328,9 @@ s32 Player_TryCsAction(PlayState* play, Actor* actor, s32 csAction) {
     return false;
 }
 
-<<<<<<< HEAD
 /**
  * Sets idle action and uses "Player_AnimChangeOnceMorph" to play animation.
  */
-=======
->>>>>>> hookshot
 void Player_SetupIdleOnceMorph(Player* this, PlayState* play) {
     Player_SetupAction(play, this, Player_Action_Idle, 1);
     Player_AnimChangeOnceMorph(play, this, Player_GetIdleAnim(this));

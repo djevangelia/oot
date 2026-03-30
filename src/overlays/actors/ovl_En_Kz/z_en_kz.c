@@ -291,6 +291,14 @@ void func_80A9CB18(EnKz* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     f32 yaw;
 
+    //! @bug King Zora softlocks. This part is moved to EnKz_UpdateTalking and slightly modified in later versions.
+    //! - If player initiates talk with A or item on the same frame player moved out of this yaw area, EnKz_UpdateTalking
+    //! will not be run until after player returns to the area. This includes Actor_TalkOfferAccepted to unset
+    //! King Zora's ACTOR_FLAG_TALK. When player returns, EnKz_UpdateTalking is called which sets
+    //! NPC_TALK_STATE_TALKING (because Actor_TalkOfferAccepted returns true), but as the message state is
+    //! TEXT_STATE_NONE, King Zora is now stuck and will not respond to talk or item.
+    //! - When talking, Player_StartTalking sets player textId to actor textId. When using Ruto's letter/Prescription,
+    //! if EnKz_UpdateTalking doesn't return true at least once before player talk, player text id will be 0 (or last text id).
 #if OOT_VERSION < PAL_1_0
     yaw = Math_Vec3f_Yaw(&this->actor.home.pos, &player->actor.world.pos);
     yaw -= this->actor.shape.rot.y;
