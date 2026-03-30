@@ -13,20 +13,25 @@
  * collision. If timer expires or collision, it handles moving the player/struck actor or retracting the chain
  * and switching to wait action.
  * - To pull the player, ArmsHook_PullPlayer sets player->actor.parent to NULL, which lets Player_UpdateUpperBody
- * set Player_Action_HookshotFly.
+ * set up Player_Action_HookshotFly.
+ * - Hookshot sets chain velocity. Player sets new position from given velocity in Player_Action_HookshotFly.
+ * Pulled actor new position is set by Hookshot.
+ * - When chain has returned to player or player has been pulled to destination, ArmsHook_AttachToPlayer sets
+ * Hookshot as player->actor.child and player->heldActor to signal that the Hookshot is back in player's hand.
  * 
  * - Note that there are two parts to the Hookshot function - player and Hookshot actor - which might not always
- * be synced (see: Hookshot jump, Majora's Mask remote Hookshot). A high Y velocity is almost certainly due to
- * Player_Action_HookshotFly not being set, as its setup removes normal movement update (see that function for reference).
+ * be synced (see: Hookshot jump, Majora's Mask remote Hookshot).
  * - If player is in an action that doesn't run Player_UpdateUpperBody, player cannot start proper Hookshot flying
  * until it is changed.
- * 
+ * - A high Y velocity is almost certainly due to Player_Action_HookshotFly not being set, as its setup removes
+ * normal movement update (see that function for reference).
+ *
  * - Scene and dynapoly collision is done by line check in ArmsHook_Action_Shoot. The collider for the hook is
  * updated in ArmsHook_Draw. This means that AT collision detection is delayed by one frame compared to background
  * collision. If the hook would seem to hit both a wall and a skulltula on the same frame, it will actually only
  * hit the wall.
- * - The front edge of the collider is slightly further forward compared to the line check line that was generated
- * on the same frame.
+ * - The front edge of the collider is slightly further forward compared to the front point of the line check line
+ * that was generated on the same frame.
  */
 
  #include "z_arms_hook.h"
@@ -152,8 +157,9 @@ void ArmsHook_PullPlayer(ArmsHook* this) {
 }
 
 /**
- * Reset player's child and heldActor to Hookshot (= unfired state),
- * and reset player's parent and Hookshot's child to NULL (= remove pull state)
+ * Reset player's child and heldActor to Hookshot (= unfired state), and if player was being
+ * pulled (actor.child != NULL), reset player's parent and Hookshot's child to NULL (= remove pull state)
+ * @return true if player was being pulled, otherwise false
  */
 s32 ArmsHook_AttachToPlayer(ArmsHook* this, Player* player) {
     player->actor.child = &this->actor;
@@ -261,10 +267,12 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
 
         // Attached to actor - player or actor should get pulled
         if (attachedActor != NULL) {
+            // Ensure Hookshot still attached
             if ((attachedActor->update == NULL) ||
                 !ACTOR_FLAGS_CHECK_ALL(attachedActor, ACTOR_FLAG_HOOKSHOT_ATTACHED)) {
                 attachedActor = NULL;
                 this->attachedActor = NULL;
+            // If pulling player, ensure actor doesn't move too much
             } else if (this->actor.child != NULL) {
                 curActorOffsetXYZ = Actor_WorldDistXYZToActor(&this->actor, attachedActor);
                 attachPointOffsetXYZ = sqrtf(SQ(this->attachPointOffset.x) + SQ(this->attachPointOffset.y) +
@@ -285,6 +293,7 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
 
         handHookDist = Math_Vec3f_DistXYZAndStoreDiff(&player->rightHandPos, &this->actor.world.pos, &handHookDistVec);
 
+        // Very short distance left to pull - handle by special final step below
         if (handHookDist < 30.0f) {
             velocity = 0.0f;
             phi_f16 = 0.0f;
@@ -297,7 +306,7 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
                 velocity = 200.0f;
             }
             phi_f16 = handHookDist - velocity;
-            if (handHookDist <= velocity) {
+            if (handHookDist <= velocity) { // Short distance left, special handling
                 phi_f16 = 0.0f;
             }
             velocity = phi_f16 / handHookDist;
@@ -314,25 +323,26 @@ void ArmsHook_Action_Shoot(ArmsHook* this, PlayState* play) {
                 Math_Vec3f_Diff(&attachedActor->world.pos, &this->attachPointOffset, &this->actor.world.pos);
                 phi_f16 = 1.0f;
             } else {
-                // newPos can be used as zero vector (to return Hookshot to player)
+                // Update Hookshot position, and attached actor position if pulling
                 Math_Vec3f_Sum(&player->rightHandPos, &newPos, &this->actor.world.pos);
                 if (attachedActor != NULL) {
                     Math_Vec3f_Sum(&this->actor.world.pos, &this->attachPointOffset, &attachedActor->world.pos);
                 }
             }
-        // Pulling Player - set new player velocity for XYZ and rotate (Player position is updated in Player_Action_HookshotFly)
+        // Pulling Player - set new player velocity for XYZ and rotate (position is updated in Player_Action_HookshotFly)
         } else {
             Math_Vec3f_Diff(&handHookDistVec, &newPos, &player->actor.velocity);
             player->actor.world.rot.x =
                 Math_Atan2S(sqrtf(SQ(handHookDistVec.x) + SQ(handHookDistVec.z)), -handHookDistVec.y);
         }
 
-        // Finalizing, return to wait action
+        // End of chain return, return to wait action
         if (phi_f16 < 50.0f) {
             ArmsHook_DetachFromActor(this);
             if (phi_f16 == 0.0f) {
                 ArmsHook_SetupAction(this, ArmsHook_Action_Wait);
                 if (ArmsHook_AttachToPlayer(this, player)) {
+                    // If player was being pulled
                     Math_Vec3f_Diff(&this->actor.world.pos, &player->actor.world.pos, &player->actor.velocity);
                     player->actor.velocity.y -= 20.0f;
                 }
