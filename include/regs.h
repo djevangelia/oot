@@ -53,6 +53,7 @@ struct PlayState;
 #define R_ENV_TIME_SPEED_OLD                     REG(15) // Most likely used during development. Unused in the final game.
 #define R_DECELERATE_RATE                        REG(43)
 #define R_RUN_SPEED_LIMIT                        REG(45)
+#define R_BOOT_GRAVITY                           REG(68)
 #define R_DARK_LINK_JUMP                         REG(69)
 #define R_ENABLE_ARENA_DBG                       SREG(0)
 #define R_AUDIOMGR_DEBUG_LEVEL                   SREG(20)

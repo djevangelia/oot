@@ -3564,6 +3564,9 @@ void EnHorse_Update(Actor* thisx, PlayState* play2) {
         if (!(this->stateFlags & ENHORSE_FLAG_24)) {
             EnHorse_UpdateBgCheckInfo(this, play);
             EnHorse_CheckFloors(this, play);
+            //! @bug yFront and yBack are 0.0 if horse spawns over water as their raycasts aren't run.
+            //! This causes the horse to be positioned at Y 0.0 when entering a water entrance
+            //! (by master glitch). Lake Hylia Y 0.0 is high in the sky etc.
             if (thisx->world.pos.y < this->yFront && thisx->world.pos.y < this->yBack) {
                 if (this->yBack < this->yFront) {
                     thisx->world.pos.y = this->yBack;

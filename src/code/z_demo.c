@@ -937,7 +937,7 @@ void CutsceneCmd_Destination(PlayState* play, CutsceneContext* csCtx, CsCmdDesti
 
             case CS_DEST_KAKARIKO_VILLAGE_NOCTURNE_PART_2:
                 Item_Give(play, ITEM_SONG_NOCTURNE);
-                SET_EVENTCHKINF(EVENTCHKINF_54);
+                SET_EVENTCHKINF(EVENTCHKINF_LEARNED_NOCTURNE);
                 play->nextEntranceIndex = ENTR_KAKARIKO_VILLAGE_0;
                 play->transitionTrigger = TRANS_TRIGGER_START;
                 gSaveContext.save.cutsceneIndex = CS_INDEX_1;

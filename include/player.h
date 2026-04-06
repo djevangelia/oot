@@ -713,7 +713,7 @@ typedef struct WeaponInfo {
 #define PLAYER_STATE1_BONGO_PREINTRO (1 << 5) // Used by Bongo Bongo in the pre-intro cutscene, where player isn't yet in a cutscene action state, to prevent input.
 #define PLAYER_STATE1_TALKING (1 << 6) // Currently talking to an actor. This includes item exchanges.
 #define PLAYER_STATE1_DEAD (1 << 7) // Player has died. Note that this gets set when the death cutscene has started, after landing from the air.
-#define PLAYER_STATE1_START_CHANGING_HELD_ITEM (1 << 8) // Item change process has begun
+#define PLAYER_STATE1_START_CHANGING_HELD_ITEM (1 << 8) // Set by Player_UseItem when called for the first time in the item change process.
 #define PLAYER_STATE1_RANGED_WEAPON_LOADED (1 << 9) // Bow, Slingshot or Hookshot is ready to fire. This is also set for a few frames after entering aiming mode even if weapon is not loaded.
 #define PLAYER_STATE1_GET_ITEM (1 << 10)
 #define PLAYER_STATE1_CARRYING_ACTOR (1 << 11) // Currently carrying an actor
@@ -742,7 +742,7 @@ typedef struct WeaponInfo {
 #define PLAYER_STATE2_CAN_ACCEPT_TALK_OFFER (1 << 1) // Can accept a talk offer. "Speak" or "Check" is shown on the A button.
 #define PLAYER_STATE2_2 (1 << 2)
 #define PLAYER_STATE2_MAKING_NOISE (1 << 3) // Set for one frame by Player_PlayItemNoise for melee attacks, changing items, using masks. Also when fast walking. Allows detection by certain enemies
-#define PLAYER_STATE2_PUSH_PULL (1 << 4) // Set intraframe by pushing and pulling actions. Blocks, graves, etc.
+#define PLAYER_STATE2_PUSH_PULL (1 << 4) // Set by pushing and pulling actions. Blocks, graves, etc. Often removed by the movable actor! (to limit distance etc.)
 #define PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW (1 << 5) // See Player_UpdateShapeYaw. Shape yaw can only be adjusted in movement direction.
 #define PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT (1 << 6) // See Player_UpdateShapeYaw. Do not adjust shape yaw.
 #define PLAYER_STATE2_GRABBED (1 << 7) // Grabbed by enemy and immobilized, such as Redead, Like like
@@ -986,7 +986,7 @@ typedef struct Player {
     /* 0x0A84 */ s16 transitionPosY; // Y position when entering a scene transition, used to time and setup falling transitions
     /* 0x0A86 */ s8 voidoutDamage; // Used to flag that player shall take voidout damage (one heart)
     /* 0x0A87 */ u8 postReviveFrames; // 20 frames after Fairy revive where certain things cannot take place
-    /* 0x0A88 */ Vec3f unk_A88; // previous body part 0 position
+    /* 0x0A88 */ Vec3f prevWaistPos; // previous body part 0 position
 } Player; // size = 0xA94
 
 // z_player_lib.c
@@ -999,7 +999,7 @@ s32 Player_ActionToModelGroup(Player* this, s32 itemAction);
 void Player_SetModelsForHoldingShield(Player* this);
 void Player_SetModels(Player* this, s32 modelGroup);
 void Player_SetModelGroup(Player* this, s32 modelGroup);
-void func_8008EC70(Player* this);
+void Player_RestoreHeldIA(Player* this);
 void Player_SetEquipmentData(struct PlayState* play, Player* this);
 void Player_UpdateBottleHeld(struct PlayState* play, Player* this, s32 item, s32 itemAction);
 void Player_ReleaseLockOn(Player* this);

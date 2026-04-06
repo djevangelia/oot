@@ -3375,6 +3375,8 @@ void Message_DrawMain(PlayState* play, Gfx** p) {
                             Message_ContinueTextbox(play, 0x86F); // Ocarina
                             msgCtx->msgMode = MSGMODE_SONG_PLAYED;
                             msgCtx->textBoxType = TEXTBOX_TYPE_OCARINA;
+                            //! @bug This causes too short distance between killing Nayru's Love and spawning Ocarina effects actor.
+                            //! This makes learning songs with Nayru's likely to crash.
                             msgCtx->stateTimer = 1;
                         } else {
                             Message_CloseTextbox(play);

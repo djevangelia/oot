@@ -113,17 +113,17 @@ typedef struct WaterBox {
 typedef enum FloorType {
     /*  0 */ FLOOR_TYPE_0,
     /*  1 */ FLOOR_TYPE_1,
-    /*  2 */ FLOOR_TYPE_2,
-    /*  3 */ FLOOR_TYPE_3,
-    /*  4 */ FLOOR_TYPE_4,
+    /*  2 */ FLOOR_TYPE_2, // Damage
+    /*  3 */ FLOOR_TYPE_3, // Damage
+    /*  4 */ FLOOR_TYPE_4, // Shallow sand
     /*  5 */ FLOOR_TYPE_5,
-    /*  6 */ FLOOR_TYPE_6, // No fall damage (Gerudo Fortress exterior walking areas)
-    /*  7 */ FLOOR_TYPE_7,
-    /*  8 */ FLOOR_TYPE_8,
+    /*  6 */ FLOOR_TYPE_6, // No fall damage (ex. Gerudo Fortress exterior walking areas)
+    /*  7 */ FLOOR_TYPE_7, // Quicksand (Haunted Wasteland ditch)
+    /*  8 */ FLOOR_TYPE_8, // Jabu surface
     /*  9 */ FLOOR_TYPE_9,
     /* 10 */ FLOOR_TYPE_10,
     /* 11 */ FLOOR_TYPE_11, // Exit grotto (force look up)
-    /* 12 */ FLOOR_TYPE_12
+    /* 12 */ FLOOR_TYPE_12 // Quicksand (Haunted Wasteland below bombchu salesman)
 } FloorType;
 
 typedef enum WallType {

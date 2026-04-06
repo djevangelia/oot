@@ -41,7 +41,7 @@ s16 sBootData[PLAYER_BOOTS_MAX][17] = {
         FRAMERATE_CONST(350, 420),   // REG(38)
         800,                         // R_DECELERATE_RATE
         600,                         // R_RUN_SPEED_LIMIT
-        -100,                        // REG(68)
+        -100,                        // R_BOOT_GRAVITY
         600,                         // R_DARK_LINK_JUMP
         590,                         // IREG(66)
         750,                         // IREG(67)
@@ -61,7 +61,7 @@ s16 sBootData[PLAYER_BOOTS_MAX][17] = {
         FRAMERATE_CONST(0, 0),       // REG(38)
         800,                         // R_DECELERATE_RATE
         300,                         // R_RUN_SPEED_LIMIT
-        -160,                        // REG(68)
+        -160,                        // R_BOOT_GRAVITY
         600,                         // R_DARK_LINK_JUMP
         590,                         // IREG(66)
         750,                         // IREG(67)
@@ -81,7 +81,7 @@ s16 sBootData[PLAYER_BOOTS_MAX][17] = {
         FRAMERATE_CONST(600, 720),   // REG(38)
         800,                         // R_DECELERATE_RATE
         550,                         // R_RUN_SPEED_LIMIT
-        -100,                        // REG(68)
+        -100,                        // R_BOOT_GRAVITY
         600,                         // R_DARK_LINK_JUMP
         540,                         // IREG(66)
         270,                         // IREG(67)
@@ -101,7 +101,7 @@ s16 sBootData[PLAYER_BOOTS_MAX][17] = {
         FRAMERATE_CONST(300, 360),   // REG(38)
         800,                         // R_DECELERATE_RATE
         500,                         // R_RUN_SPEED_LIMIT
-        -100,                        // REG(68)
+        -100,                        // R_BOOT_GRAVITY
         600,                         // R_DARK_LINK_JUMP
         590,                         // IREG(66)
         750,                         // IREG(67)
@@ -121,7 +121,7 @@ s16 sBootData[PLAYER_BOOTS_MAX][17] = {
         FRAMERATE_CONST(50, 60),   // REG(38)
         800,                       // R_DECELERATE_RATE
         550,                       // R_RUN_SPEED_LIMIT
-        -40,                       // REG(68)
+        -40,                       // R_BOOT_GRAVITY
         400,                       // R_DARK_LINK_JUMP
         540,                       // IREG(66)
         270,                       // IREG(67)
@@ -141,7 +141,7 @@ s16 sBootData[PLAYER_BOOTS_MAX][17] = {
         FRAMERATE_CONST(400, 480),   // REG(38)
         800,                         // R_DECELERATE_RATE
         550,                         // R_RUN_SPEED_LIMIT
-        -100,                        // REG(68)
+        -100,                        // R_BOOT_GRAVITY
         600,                         // R_DARK_LINK_JUMP
         540,                         // IREG(66)
         750,                         // IREG(67)
@@ -606,7 +606,7 @@ void Player_SetBootData(PlayState* play, Player* this) {
     REG(38) = bootRegs[7];
     R_DECELERATE_RATE = bootRegs[8];
     R_RUN_SPEED_LIMIT = bootRegs[9];
-    REG(68) = bootRegs[10];
+    R_BOOT_GRAVITY = bootRegs[10];
     R_DARK_LINK_JUMP = bootRegs[11];
     IREG(66) = bootRegs[12];
     IREG(67) = bootRegs[13];
@@ -710,7 +710,12 @@ void Player_SetModelGroup(Player* this, s32 modelGroup) {
     Player_SetModels(this, modelGroup);
 }
 
-void func_8008EC70(Player* this) {
+/**
+ * Ensure that the item action is the same as player's held item action and set the correct model.
+ * This is used by shield-related functions as shielding (non-Hylian child) sets itemAction to -1,
+ * as well as Player_SetupAction if there is mismatch between itemAction and heldItemAction. 
+ */
+void Player_RestoreHeldIA(Player* this) {
     this->itemAction = this->heldItemAction;
     Player_SetModelGroup(this, Player_ActionToModelGroup(this, this->heldItemAction));
     this->unk_6AD = 0; // This prevents cutscene items from doing erroneous things when the item
