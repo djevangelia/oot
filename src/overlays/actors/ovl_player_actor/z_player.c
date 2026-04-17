@@ -5093,9 +5093,12 @@ void Player_SetInvulnerability(Player* this, s32 timer) {
 }
 
 /**
- * @return false if player is out of health
+ * Change player's current health by a given amount
+ * @param damage the amount to change by
+ * @return true if invulnerable, Dark Link, or successful health change,
+ * false if player is out of health
  */
-s32 func_80837B18(PlayState* play, Player* this, s32 damage) {
+s32 Player_ChangeHealth(PlayState* play, Player* this, s32 damage) {
     if ((this->invincibilityTimer != 0) || (this->actor.category != ACTORCAT_PLAYER)) {
         return true;
     }
@@ -5147,7 +5150,7 @@ void Player_HandleDamageHitResponse(PlayState* play, Player* this, s32 hitRespon
     //! meleeWeaponState, nor actually set the player in a death state.
     //! If player takes fatal damage but is healed the same frame, gameplay continues but
     //! now in not on ground action. This causes jumpslash ISG.
-    if (!func_80837B18(play, this, 0 - this->actor.colChkInfo.damage)) {
+    if (!Player_ChangeHealth(play, this, 0 - this->actor.colChkInfo.damage)) {
         this->stateFlags2 &= ~PLAYER_STATE2_GRABBED;
         if (!(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) && !(this->stateFlags1 & PLAYER_STATE1_IN_WATER)) {
             Player_SetupNotOnGroundWithAV(this, play);
@@ -5340,7 +5343,10 @@ void Player_HitSoundCheckBurn(Player* this) {
     Player_PlayVoiceSfx(this, NA_SE_VO_LI_FALL_L);
 }
 
-void func_808382BC(Player* this) {
+/**
+ * Set invincibility timer to 20 (if not already higher).
+ */
+void Player_SetInvincibility20(Player* this) {
     if ((this->invincibilityTimer >= 0) && (this->invincibilityTimer < 20)) {
         this->invincibilityTimer = 20;
     }
@@ -7769,7 +7775,7 @@ void Player_WaterUpdate(PlayState* play, Player* this) {
         } else if ((this->stateFlags1 & PLAYER_STATE1_IN_WATER) &&
                    (this->actor.depthInWater < this->ageProperties->stopSwimDepth)) {
             if ((this->skelAnime.movementFlags == 0) && (this->currentBoots != PLAYER_BOOTS_IRON)) {
-                //! @bug Changing to this when exiting water allows for WESS.
+                //! @bug Changing action to TurnInPlace when exiting water allows for WESS.
                 Player_SetupTurnInPlace(play, this, this->actor.shape.rot.y);
             }
             Player_ExitWater(play, this, this->actor.velocity.y);
@@ -10353,7 +10359,7 @@ void Player_Action_DamageReaction(Player* this, PlayState* play) {
 void Player_Action_KnockbackFly(Player* this, PlayState* play) {
     this->stateFlags2 |= PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT;
 
-    func_808382BC(this);
+    Player_SetInvincibility20(this);
 
     if (!(this->stateFlags1 & PLAYER_STATE1_CUTSCENE) && (this->av2.actionVar2 == 0) &&
         (this->knockbackType != PLAYER_KNOCKBACK_NONE)) {
@@ -10404,7 +10410,7 @@ void Player_Action_KnockbackFly(Player* this, PlayState* play) {
  */
 void Player_Action_KnockbackLand(Player* this, PlayState* play) {
     this->stateFlags2 |= PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT;
-    func_808382BC(this);
+    Player_SetInvincibility20(this);
 
     Player_DecelerateToZero(this);
 
@@ -10437,7 +10443,7 @@ void Player_Action_KnockbackRise(Player* this, PlayState* play) {
     s32 interruptResult;
 
     this->stateFlags2 |= PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW;
-    func_808382BC(this);
+    Player_SetInvincibility20(this);
 
     if (this->stateFlags1 & PLAYER_STATE1_CUTSCENE) {
         LinkAnimation_Update(play, &this->skelAnime);
@@ -15753,7 +15759,7 @@ void Player_Action_ExitGrotto(Player* this, PlayState* play) {
 
 
 void Player_Action_ShootingGallery(Player* this, PlayState* play) {
-    // Player will be first person with a ranged weapon
+    // Set first person with ranged weapon
     this->unk_6AD = 2;
 
     // Set camera for first person aiming
@@ -15783,17 +15789,19 @@ void Player_Action_Frozen(Player* this, PlayState* play) {
             this->av1.actionVar1++;
         }
 
+        // Managed to break free
         if (Player_TryBreakingFree(this, 1, 100)) {
             this->av1.actionVar1 = -1;
             EffectSsIcePiece_SpawnBurst(play, &this->actor.world.pos, this->actor.scale.x);
             Player_PlaySfx(this, NA_SE_PL_ICE_BROKEN);
-        } else {
+        } else { // Still frozen
             this->stateFlags2 |= PLAYER_STATE2_FROZEN;
         }
 
         if ((play->gameplayFrames % 4) == 0) {
             Player_InflictDamage(play, -1);
         }
+    // Broke free
     } else {
         if (LinkAnimation_Update(play, &this->skelAnime)) {
             Player_SetupIdleDependingOnTargetWithAnim(this, play);
@@ -15802,11 +15810,15 @@ void Player_Action_Frozen(Player* this, PlayState* play) {
     }
 }
 
+/**
+ * Player is in electrified state
+ * actionVar2 is set to 20 by setup function
+ */
 void Player_Action_Electrified(Player* this, PlayState* play) {
     LinkAnimation_Update(play, &this->skelAnime);
-    func_808382BC(this);
+    Player_SetInvincibility20(this);
 
-    if (((this->av2.actionVar2 % 25) != 0) || func_80837B18(play, this, -1)) {
+    if (((this->av2.actionVar2 % 25) != 0) || Player_ChangeHealth(play, this, -1)) {
         if (DECR(this->av2.actionVar2) == 0) {
             Player_SetupIdleDependingOnTargetWithAnim(this, play);
         }
@@ -16094,7 +16106,7 @@ void Player_Action_UseSetFaroresWind(Player* this, PlayState* play) {
     Player_UpdateUpperBody(this, play);
 
     if (this->av2.actionVar2 == 0) {
-        Message_StartTextbox(play, 0x3B, &this->actor);
+        Message_StartTextbox(play, 0x3B, &this->actor); // "You cast Farore's Wind!"
         this->av2.actionVar2 = 1;
         return;
     }
@@ -16102,7 +16114,7 @@ void Player_Action_UseSetFaroresWind(Player* this, PlayState* play) {
     if (Message_GetState(&play->msgCtx) == TEXT_STATE_CLOSING) {
         s32 respawnData = gSaveContext.respawn[RESPAWN_MODE_TOP].data;
 
-        if (play->msgCtx.choiceIndex == 0) {
+        if (play->msgCtx.choiceIndex == 0) { // Warp
             gSaveContext.respawnFlag = 3;
             play->transitionTrigger = TRANS_TRIGGER_START;
             play->nextEntranceIndex = gSaveContext.respawn[RESPAWN_MODE_TOP].entranceIndex;
@@ -16111,7 +16123,7 @@ void Player_Action_UseSetFaroresWind(Player* this, PlayState* play) {
             return;
         }
 
-        if (play->msgCtx.choiceIndex == 1) {
+        if (play->msgCtx.choiceIndex == 1) { // Dispel
             gSaveContext.respawn[RESPAWN_MODE_TOP].data = -respawnData;
             gSaveContext.save.info.fw.set = 0;
             Sfx_PlaySfxAtPos(&gSaveContext.respawn[RESPAWN_MODE_TOP].pos, NA_SE_PL_MAGIC_WIND_VANISH);
@@ -16160,19 +16172,32 @@ static LinkAnimationHeader* sMagicSpellCastFinish[] = {
 static u8 sSpellLengthCount[] = { 70, 10, 10 };
 
 /**
- * actionVar1 is the spell that is casted (Farore 0, Nayru 1, Din 2)
+ * Casting magic spell. actionVar1 is the spell that is casted (Farore 0, Nayru 1, Din 2).
+ * Four phases:
+ * 1) General start cast animation, started by setup function       (actionVar2 is 0)
+ * - When finished, start init spell animation and set actionVar2 to 1.
+ * 2) Init spell cast animation                                     (actionVar2 is 1)
+ * - Wait for animation to finish. Then set actionVar2 to 2.
+ * - If Farore, actionVar2 is initially decreased to set respawn point.
+ * 3) Loop spell cast animation.                                    (actionVar2 is >=2)
+ * - Increase actionVar2 until higher than spell cast length frame count.
+ * - Then, start finish spell cast animation.
+ * - Set actionVar to -1 to signal end of action.
+ * 4) Finish spell cast animation.                                  (actionVar1 is -1)
+ * - When animation finished, exit action.
  */
 void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
-    // Has finished 1) general start cast animation (setup function), 2) init spell cast animation,
-    // or 3) finish cast animation
+    // If true, player has finished 1), 2) or 4).
     if (LinkAnimation_Update(play, &this->skelAnime)) {
-        if (this->av1.actionVar1 < 0) { // 3) When finished, actionVar1 is set to -1 = exit action
+        // 4) When finished, actionVar1 has been set to -1 = exit action
+        if (this->av1.actionVar1 < 0) { 
             if ((this->itemAction == PLAYER_IA_NAYRUS_LOVE) || (gSaveContext.magicState == MAGIC_STATE_IDLE)) {
                 Player_SetupIdleDependingOnTarget(this, play);
                 Camera_SetFinishedFlag(Play_GetCamera(play, CAM_ID_MAIN));
             }
+        // 1) and 2), move to next phase
         } else {
-            // 1) Play init spell cast animation once, set actionVar 2 to 1 below
+            // 1) Start init spell cast animation. Set actionVar2 to 1 below
             if (this->av2.actionVar2 == 0) {
                 LinkAnimation_PlayOnceSetSpeed(play, &this->skelAnime, sMagicSpellCastInit[this->av1.actionVar1],
                                                0.83f);
@@ -16185,12 +16210,12 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 } else {
                     Magic_Reset(play);
                 }
-                // 2) Loop the main casting animation, set actionVar 2 to 2 below
+            // 2) Start looping the main casting animation. Increase actionVar2 to 2 below
             } else {
                 LinkAnimation_PlayLoopSetSpeed(play, &this->skelAnime, sMagicSpellCastMain[this->av1.actionVar1],
                                                0.83f);
 
-                // If casting Farore, set negative actionVar2 to set respawn point below
+                // Farore: set negative actionVar2 to set respawn point below
                 if (this->av1.actionVar1 == 0) {
                     this->av2.actionVar2 = -10;
                 }
@@ -16198,7 +16223,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
             this->av2.actionVar2++;
         }
     } else {
-        // Farore after starting main cast
+        // 3) Farore, after starting main cast
         if (this->av2.actionVar2 < 0) {
             this->av2.actionVar2++;
 
@@ -16218,10 +16243,11 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 gSaveContext.save.info.fw.roomIndex = gSaveContext.respawn[RESPAWN_MODE_DOWN].roomIndex;
                 gSaveContext.save.info.fw.tempSwchFlags = gSaveContext.respawn[RESPAWN_MODE_DOWN].tempSwchFlags;
                 gSaveContext.save.info.fw.tempCollectFlags = gSaveContext.respawn[RESPAWN_MODE_DOWN].tempCollectFlags;
-                this->av2.actionVar2 = 2;
+                this->av2.actionVar2 = 2;   // Re-enter function flow
             }
+        // 1), 2) and 3)
         } else if (this->av1.actionVar1 >= 0) {
-            // Sfx for general start cast animation
+            // 1) Sfx for general start cast animation
             if (this->av2.actionVar2 == 0) {
                 static AnimSfxEntry D_80854A80[] = {
                     { NA_SE_PL_SKIP, ANIMSFX_DATA(ANIMSFX_TYPE_GENERAL, 20) },
@@ -16230,7 +16256,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 };
 
                 Player_ProcessAnimSfxList(this, D_80854A80);
-                // Sfx for starting spell init cast
+            // 2) Sfx for starting spell init cast
             } else if (this->av2.actionVar2 == 1) {
                 static AnimSfxEntry D_80854A8C[][2] = {
                     {
@@ -16252,7 +16278,8 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 if ((this->av1.actionVar1 == 2) && LinkAnimation_OnFrame(&this->skelAnime, 30.0f)) {
                     this->stateFlags1 &= ~(PLAYER_STATE1_28 | PLAYER_STATE1_CUTSCENE);
                 }
-                // If incrementing actionVar2 higher than spell length, start finish cast animation
+            // 3) Increment actionVar2 until higher than spell cast length. Then enter next phase by starting
+            // finish spell cast animation and set actionVar1 to -1 to enable exiting action when animation finished
             } else if (sSpellLengthCount[this->av1.actionVar1] < this->av2.actionVar2++) {
                 LinkAnimation_PlayOnceSetSpeed(play, &this->skelAnime, sMagicSpellCastFinish[this->av1.actionVar1],
                                                0.83f);
@@ -17524,7 +17551,7 @@ void Player_SetupIdleOnceMorph(Player* this, PlayState* play) {
 s32 Player_InflictDamage(PlayState* play, s32 damage) {
     Player* this = GET_PLAYER(play);
 
-    if (!Player_InBlockingCsMode(play, this) && !func_80837B18(play, this, damage)) {
+    if (!Player_InBlockingCsMode(play, this) && !Player_ChangeHealth(play, this, damage)) {
         this->stateFlags2 &= ~PLAYER_STATE2_GRABBED;
         return 1;
     }
