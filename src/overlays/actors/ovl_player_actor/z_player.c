@@ -2780,6 +2780,7 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
     s32 item;
     s32 i;
 
+    // Put away mask?
     if (this->currentMask != PLAYER_MASK_NONE) {
         maskItemAction = this->currentMask - 1 + PLAYER_IA_MASK_KEATON;
 
@@ -2791,6 +2792,7 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
     }
 
     if (!(this->stateFlags1 & (PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_CUTSCENE)) && !Player_HasFiredHookshot(this)) {
+        // Put away item?
         if (this->itemAction >= PLAYER_IA_FISHING_POLE) {
             if (!Player_ItemIsInUse(this, B_BTN_ITEM) && !Player_ItemIsInUse(this, C_BTN_ITEM(0)) &&
                 !Player_ItemIsInUse(this, C_BTN_ITEM(1)) && !Player_ItemIsInUse(this, C_BTN_ITEM(2))) {
@@ -2799,6 +2801,7 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
             }
         }
 
+        // Else, check which button player is pressing (if any)
         for (i = 0; i < ARRAY_COUNT(sItemButtons); i++) {
             if (CHECK_BTN_ALL(sControlInput->press.button, sItemButtons[i])) {
                 break;
@@ -2808,6 +2811,7 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
         item = Player_GetItemOnButton(play, i);
 
         if (item >= ITEM_NONE_FE) {
+            // Item not an actual item - not pressing a button. Check if player is holding a button
             for (i = 0; i < ARRAY_COUNT(sItemButtons); i++) {
                 if (CHECK_BTN_ALL(sControlInput->cur.button, sItemButtons[i])) {
                     break;
@@ -2816,13 +2820,16 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
 
             item = Player_GetItemOnButton(play, i);
 
-            //! @bug This doesn't set heldItemButton, nor confirm that item is actually held item.
-            //! This is used to get bottle on B. The C press during shield swipe will not register
-            //! as "pressed" but as "held", so if B is still heldItemButton, bottle goes on B.
+            // If item is an actual item and item's IA matches player's held IA, player is holding the button
+            //! @bug This doesn't set heldItemButton, nor confirm that item is actually player's held item.
+            //! This is used to get bottle on B. The C press during shield swipe never registers as "press",
+            //! but only as "held" when stopping shielding - so if B is still heldItemButton, bottle goes on B.
+            //! @see `Player_UpdateBottleHeld`.
             if ((item < ITEM_NONE_FE) && (Player_ItemToItemAction(item) == this->heldItemAction)) {
                 sHeldItemButtonIsHeldDown = true;
             }
         } else {
+            // Pressing a button. Use the item (either equipping, or using if already held)
             this->heldItemButton = i;
             Player_UseItem(play, this, item);
         }
@@ -2831,8 +2838,9 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
 
 /**
  * First part of item change, called by Player_UseItem.
- * Select animation for item change and start playing it. Set upper action
- * to Player_UpperAction_ChangeHeldItem. Remove PLAYER_STATE1_START_CHANGING_HELD_ITEM.
+ * - Select animation for item change and start playing it.
+ * - Set upper action to Player_UpperAction_ChangeHeldItem.
+ * - Remove state PLAYER_STATE1_START_CHANGING_HELD_ITEM.
  */
 void Player_StartChangingHeldItem(Player* this, PlayState* play) {
     LinkAnimationHeader* anim;
@@ -2844,7 +2852,8 @@ void Player_StartChangingHeldItem(Player* this, PlayState* play) {
     s8 heldItemIA;
     s32 nextAnimType;
 
-    heldItemIA = Player_ItemToItemAction(this->heldItemId); // IA of current held item (the new item), NOT current (old) heldItemAction
+    // IA of current held item (= the new item). This is NOT current (and old) heldItemAction
+    heldItemIA = Player_ItemToItemAction(this->heldItemId);
 
     Player_SetUpperActionFunc(this, Player_UpperAction_ChangeHeldItem);
 
@@ -2888,15 +2897,14 @@ void Player_StartChangingHeldItem(Player* this, PlayState* play) {
 }
 
 /**
- * Check if player is in a state to where item buttons should be processed and do so.
- * If not, if player just started changing held item, continue the process.
+ * Check if player is in a state to where item buttons should be processed and then do so.
+ * If not - if player just started changing held item, continue the item change process.
  */
 void Player_UpdateItems(Player* this, PlayState* play) {
-    //! @bug Without the added state check below it's possible to do quick putaway/QPA with CS item - if other
-    //! conditions are OK, Player_ProcessItemButtons runs before Player_StartChangingHeldItem is called,
-    //! and calls Player_UseItem to use the CS item. The change item state is unset.
-    //! Result: Player IA and held IA are of previous item, but held item is none.
-
+    //! @bug Without the added state check below it's possible to do quick putaway/QPA with CS item,
+    //! as if other conditions are OK Player_ProcessItemButtons runs before Player_StartChangingHeldItem
+    //! and can call Player_UseItem. The state is unset.
+    //!  = Player IA and held IA are of previous item, but held item is none.
     if ((this->actor.category == ACTORCAT_PLAYER) &&
 #if OOT_VERSION >= NTSC_1_1
         !(this->stateFlags1 & PLAYER_STATE1_START_CHANGING_HELD_ITEM) &&
@@ -2909,11 +2917,11 @@ void Player_UpdateItems(Player* this, PlayState* play) {
         Player_ProcessItemButtons(this, play);
     }
 
-    // Player_UseItem was just run to use a new item. Continue change process.
     if (this->stateFlags1 & PLAYER_STATE1_START_CHANGING_HELD_ITEM) {
         Player_StartChangingHeldItem(this, play);
     }
 }
+
 
 /**
  * Returns current ammo for Bow or Slingshot.
@@ -2926,7 +2934,7 @@ s32 Player_ReturnItemAmmo(PlayState* play, Player* this, s32* itemPtr, s32* type
             *typePtr = ARROW_NORMAL_HORSE;
         } else {
             // PLAYER_IA_BOW is 8, the magic arrows IA are 9-11.
-            // Ammo type pointer is set to normal or type of magic arrow
+            // Ammo type pointer is set to normal or type of magic arrow.
             //! @bug Deku Stick action swap with bow. typePtr becomes 0 = ARROW_NORMAL_LIT.
             *typePtr = ARROW_NORMAL + (this->heldItemAction - PLAYER_IA_BOW);
         }
@@ -14072,7 +14080,7 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
     s32 inputX;
     f32 speed;
     f32 animSpeed;
-    Vec3f sp6C;
+    Vec3f wallMoveDiff;
     s32 sp68;
     Vec3f sp5C;
     DynaPolyActor* wallPolyActor;
@@ -14114,8 +14122,8 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
         if ((this->actor.wallPoly != NULL) && (this->actor.wallBgId != BGCHECK_SCENE)) {
             wallPolyActor = DynaPoly_GetActor(&play->colCtx, this->actor.wallBgId);
             if (wallPolyActor != NULL) {
-                Math_Vec3f_Diff(&wallPolyActor->actor.world.pos, &wallPolyActor->actor.prevPos, &sp6C);
-                Math_Vec3f_Sum(&this->actor.world.pos, &sp6C, &this->actor.world.pos);
+                Math_Vec3f_Diff(&wallPolyActor->actor.world.pos, &wallPolyActor->actor.prevPos, &wallMoveDiff);
+                Math_Vec3f_Sum(&this->actor.world.pos, &wallMoveDiff, &this->actor.world.pos);
             }
         }
 
@@ -14131,7 +14139,7 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
                 return;
             }
 
-            // Climb up/down
+            // Direction up/down
             if (inputY != 0) {
                 f32 wallHeight;
 
@@ -14182,7 +14190,7 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
                 this->av2.actionVar2 ^= 1;
             
             } else {
-                // Climb sideways
+                // Direction sideways
                 if ((this->av1.actionVar1 != 0) && (inputX != 0)) {
                     anim2 = this->ageProperties->sideClimbAnim[this->av2.actionVar2];
 
@@ -14220,10 +14228,10 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
     }
 }
 
-static f32 D_80854898[] = { 10.0f, 20.0f };
-static f32 D_808548A0[] = { 40.0f, 50.0f };
+static f32 sUpDismountLadderFrames[] = { 10.0f, 20.0f };
+static f32 sDownDismountLadderFrames[] = { 40.0f, 50.0f };
 
-static AnimSfxEntry D_808548A8[] = {
+static AnimSfxEntry sDownDismountLadderAnimSfx[] = {
     { NA_SE_PL_WALK_GROUND + SURFACE_SFX_OFFSET_WOOD, ANIMSFX_DATA(ANIMSFX_TYPE_GENERAL, 10) },
     { NA_SE_PL_WALK_GROUND + SURFACE_SFX_OFFSET_WOOD, ANIMSFX_DATA(ANIMSFX_TYPE_GENERAL, 20) },
     { NA_SE_PL_WALK_GROUND + SURFACE_SFX_OFFSET_WOOD, -ANIMSFX_DATA(ANIMSFX_TYPE_GENERAL, 30) },
@@ -14231,13 +14239,14 @@ static AnimSfxEntry D_808548A8[] = {
 
 /**
  * Dismounting ladders, both upwards and downwards.
+ * actionVar2 = 1 if dismounting down
  */
 void Player_Action_DismountLadder(Player* this, PlayState* play) {
     s32 interruptResult;
     f32* frame;
     CollisionPoly* groundPoly;
     s32 bgId;
-    Vec3f sp24;
+    Vec3f raycastPos;
 
     this->stateFlags2 |= PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT;
 
@@ -14247,7 +14256,8 @@ void Player_Action_DismountLadder(Player* this, PlayState* play) {
     //! as AH 0 calls AH 13 (due to unk_6AD > 0) and then returns true. This both removes PLAYER_STATE1_CLIMBING
     //! below, which causes Player_UpdateCommon to continuously set unk_6AD to 3, and causes the final
     //! LinkAnimation_Update (that normally exits the action and sets idle action) to never run.
-    //! Adding `&& this->unk_6AD != 3` prevents this softlock, as the animation update can play.
+    //! This also causes ladder restricted items softlock with Farore's Wind (unk_6AD is 4).
+    //! Adding `&& this->unk_6AD < 3` prevents this softlock, as the animation update can play.
     if (interruptResult == PLAYER_INTERRUPT_NEW_ACTION) {
         this->stateFlags1 &= ~PLAYER_STATE1_CLIMBING;
         return;
@@ -14259,18 +14269,18 @@ void Player_Action_DismountLadder(Player* this, PlayState* play) {
         return;
     }
 
-    frame = D_80854898;
+    frame = sUpDismountLadderFrames;
 
     if (this->av2.actionVar2 != 0) {
-        Player_ProcessAnimSfxList(this, D_808548A8);
-        frame = D_808548A0;
+        Player_ProcessAnimSfxList(this, sDownDismountLadderAnimSfx);
+        frame = sDownDismountLadderFrames;
     }
 
     if (LinkAnimation_OnFrame(&this->skelAnime, frame[0]) || LinkAnimation_OnFrame(&this->skelAnime, frame[1])) {
-        sp24.x = this->actor.world.pos.x;
-        sp24.y = this->actor.world.pos.y + 20.0f;
-        sp24.z = this->actor.world.pos.z;
-        if (BgCheck_EntityRaycastDown3(&play->colCtx, &groundPoly, &bgId, &sp24) != 0.0f) {
+        raycastPos.x = this->actor.world.pos.x;
+        raycastPos.y = this->actor.world.pos.y + 20.0f;
+        raycastPos.z = this->actor.world.pos.z;
+        if (BgCheck_EntityRaycastDown3(&play->colCtx, &groundPoly, &bgId, &raycastPos) != 0.0f) {
             //! @bug should use `SurfaceType_GetSfxOffset` instead of `SurfaceType_GetMaterial`.
             // Most material and sfxOffsets share identical enum values,
             // so this will mostly result in the correct sfx played, but not in all cases, such as carpet and ice.
@@ -14358,7 +14368,7 @@ static Vec3f D_8085492C[] = {
 /**
  * Check if collision allows dismounting horse on a given side
  */
-int Player_CheckDismountCollision(PlayState* play, Player* this, s32 mountSide, f32* raycastY) {
+int Player_CheckDismountHorseCollision(PlayState* play, Player* this, s32 mountSide, f32* raycastY) {
     EnHorse* rideActor = (EnHorse*)this->rideActor;
     f32 posYplus;
     f32 posYminus;
@@ -14389,9 +14399,9 @@ s32 Player_TryDismountHorse(Player* this, PlayState* play) {
         this->av2.actionVar2 = 99;
     } else {
         mountSide = (this->mountSide < 0) ? 0 : 1;
-        if (!Player_CheckDismountCollision(play, this, mountSide, &raycastY)) {
+        if (!Player_CheckDismountHorseCollision(play, this, mountSide, &raycastY)) {
             mountSide ^= 1;
-            if (!Player_CheckDismountCollision(play, this, mountSide, &raycastY)) {
+            if (!Player_CheckDismountHorseCollision(play, this, mountSide, &raycastY)) {
                 return 0;
             } else {
                 this->mountSide = -this->mountSide;
