@@ -5809,7 +5809,7 @@ s32 Player_HandleExitsAndVoids(PlayState* play, Player* this, CollisionPoly* flo
                 } else {
                     // This floor effect is used with doors and other entrances.
                     // Considering the respawnFlag gets changed, maybe some other effect from
-                    // Play_TriggerVoidOut was sought than voiding out.
+                    // Play_TriggerVoidOut was sought than voiding out (such as restoring temp flags).
                     if (SurfaceType_GetFloorEffect(&play->colCtx, floorPoly, bgId) == FLOOR_EFFECT_2) {
                         gSaveContext.respawn[RESPAWN_MODE_DOWN].entranceIndex = play->nextEntranceIndex;
                         Play_TriggerVoidOut(play);
@@ -15221,7 +15221,8 @@ void Player_Action_GetItem(Player* this, PlayState* play) {
                 }
             }
         } else {
-            // 2) Chest, after opening
+            // 2) Chest (av2 = 0): after opening
+            // 2) Non-chest (av2 = 1): after first animation finishes
             Player_FinishAnimMovement(this);
 
             if (this->getItemId == GI_ICE_TRAP) {
@@ -15245,10 +15246,11 @@ void Player_Action_GetItem(Player* this, PlayState* play) {
                 Player_AnimPlayOnceAdjusted(play, this, &gPlayerAnim_link_demo_get_itemA);
             }
 
-            this->av2.actionVar2 = 2; // Run first part of function after showing animation done
+            this->av2.actionVar2 = 2;
             Player_SetTurnAroundCamera(play, CAM_ITEM_TYPE_9);
         }
-    } else { // 1) This runs before opening animation finishes + 3) during demonstration animation
+    } else {
+        // 1) Chest (av2 = 0): This runs before opening animation finishes
         if (this->av2.actionVar2 == 0) {
             if (!LINK_IS_ADULT) {
                 Player_ProcessAnimSfxList(this, sChildLinkChestOpenSfx); // Play child Link's chest diving sounds
@@ -15256,6 +15258,7 @@ void Player_Action_GetItem(Player* this, PlayState* play) {
             return;
         }
 
+        // 3) Chest (av2 = 2) and 1) non-chest (av2 = 1): during demonstration animation
         if (this->skelAnime.animation == &gPlayerAnim_link_demo_get_itemB) {
             Math_ScaledStepToS(&this->actor.shape.rot.y, Camera_GetCamDirYaw(GET_ACTIVE_CAM(play)) + 0x8000, 4000);
         }
