@@ -134,14 +134,14 @@ typedef struct ItemChangeInfo {
     /* 0x04 */ u8 changeFrame;
 } ItemChangeInfo; // size = 0x08
 
-typedef struct MWAInfo {
+typedef struct MeleeWeaponAnimInfo {
     /* 0x00 */ LinkAnimationHeader* attackAnim;     // Melee attack animation
     /* 0x04 */ LinkAnimationHeader* postAttackAnim; // Animation for returning to neutral position
     /* 0x08 */ LinkAnimationHeader*
         postAttackAnimTargeting; // Animation for returning to neutral position when hostile Z-targeting
     /* 0x0C */ u8 colliderFrame; // Frame of attack animation to activate weapon collider
     /* 0x0D */ u8 finalFrame;    // Final frame of blure and collider
-} MWAInfo;                       // size = 0x10
+} MeleeWeaponAnimInfo;                       // size = 0x10
 
 typedef struct MountAnimInfo {
     /* 0x00 */ LinkAnimationHeader* anim;
@@ -1568,8 +1568,7 @@ static ExplosiveInfo sExplosiveInfos[] = {
     { ITEM_BOMBCHU, ACTOR_EN_BOM_CHU },
 };
 
-static MWAInfo sMWAInfos[PLAYER_MWA_MAX] = {
-    // Melee Weapon Animation
+static MeleeWeaponAnimInfo sMeleeWeaponAnimInfos[PLAYER_MWA_MAX] = {
     /* PLAYER_MWA_FORWARD_SLASH_1H */
     { &gPlayerAnim_link_fighter_normal_kiru, &gPlayerAnim_link_fighter_normal_kiru_end,
       &gPlayerAnim_link_fighter_normal_kiru_endR, 1, 4 },
@@ -4926,14 +4925,14 @@ void Player_SetupChargeSpinAttack(PlayState* play, Player* this) {
     Player_InitSpinAttackCharge(play, this);
 }
 
-static s8 sSwordMWAs[] = {
+static s8 sSwordMeleeWeaponAnims[] = {
     PLAYER_MWA_STAB_1H,
     PLAYER_MWA_RIGHT_SLASH_1H,
     PLAYER_MWA_RIGHT_SLASH_1H,
     PLAYER_MWA_LEFT_SLASH_1H,
 };
 
-static s8 sHammerMWAs[] = {
+static s8 sHammerMeleeWeaponAnims[] = {
     PLAYER_MWA_HAMMER_FORWARD,
     PLAYER_MWA_HAMMER_SIDE,
     PLAYER_MWA_HAMMER_FORWARD,
@@ -4944,51 +4943,51 @@ static s8 sHammerMWAs[] = {
  * Set melee weapon animation from stick input.
  * @return the new melee weapon animation index integer
  */
-s32 Player_SetMeleeAttackFromStickInput(Player* this) {
+s32 Player_GetMeleeWeaponAnimFromStickInput(Player* this) {
     s32 controlStickDirection = this->controlStickDirections[this->controlStickDataIndex];
-    s32 MWA;
+    s32 mwa;
 
     if (this->heldItemAction == PLAYER_IA_HAMMER) {
         if (controlStickDirection <= PLAYER_STICK_DIR_NONE) {
             controlStickDirection = PLAYER_STICK_DIR_FORWARD;
         }
 
-        MWA = sHammerMWAs[controlStickDirection];
+        mwa = sHammerMeleeWeaponAnims[controlStickDirection];
         this->tripleSlashCount = 0; // No triple slashing with Hammer
     } else {
         if (Player_CanSpinAttack(this)) {
-            MWA = PLAYER_MWA_SPIN_ATTACK_1H;
+            mwa = PLAYER_MWA_SPIN_ATTACK_1H;
         } else {
             if (controlStickDirection <= PLAYER_STICK_DIR_NONE) {
                 if (Player_IsZTargeting(this)) {
-                    MWA = PLAYER_MWA_FORWARD_SLASH_1H;
+                    mwa = PLAYER_MWA_FORWARD_SLASH_1H;
                 } else {
-                    MWA = PLAYER_MWA_RIGHT_SLASH_1H;
+                    mwa = PLAYER_MWA_RIGHT_SLASH_1H;
                 }
             } else {
-                MWA = sSwordMWAs[controlStickDirection];
+                mwa = sSwordMeleeWeaponAnims[controlStickDirection];
 
-                if (MWA == PLAYER_MWA_STAB_1H) {
+                if (mwa == PLAYER_MWA_STAB_1H) {
                     this->stateFlags2 |= PLAYER_STATE2_ATTACK_MOVE_FORWARD;
 
                     if (!Player_IsZTargeting(this)) {
-                        MWA = PLAYER_MWA_FORWARD_SLASH_1H;
+                        mwa = PLAYER_MWA_FORWARD_SLASH_1H;
                     }
                 }
             }
 
             if (this->heldItemAction == PLAYER_IA_DEKU_STICK) {
-                MWA = PLAYER_MWA_FORWARD_SLASH_1H;
+                mwa = PLAYER_MWA_FORWARD_SLASH_1H;
             }
         }
 
         // If two handed select the two hand animation
         if (Player_HoldsTwoHandedWeapon(this)) {
-            MWA++;
+            mwa++;
         }
     }
 
-    return MWA;
+    return mwa;
 }
 
 /**
@@ -4996,10 +4995,10 @@ s32 Player_SetMeleeAttackFromStickInput(Player* this) {
  * @param quadIndex which of the two collider quads to set flags for
  * @param dmgFlags flag for which weapon and whether normal/jump attack
  */
-void Player_SetMeleeATFlags(Player* this, s32 quadIndex, u32 dmgFlag) {
-    this->meleeWeaponQuads[quadIndex].elem.atDmgInfo.dmgFlags = dmgFlag;
+void Player_SetMeleeATFlags(Player* this, s32 quadIndex, u32 dmgFlags) {
+    this->meleeWeaponQuads[quadIndex].elem.atDmgInfo.dmgFlags = dmgFlags;
 
-    if (dmgFlag == DMG_DEKU_STICK) {
+    if (dmgFlags == DMG_DEKU_STICK) {
         this->meleeWeaponQuads[quadIndex].elem.atElemFlags = ATELEM_ON | ATELEM_NEAREST | ATELEM_SFX_WOOD;
     } else {
         this->meleeWeaponQuads[quadIndex].elem.atElemFlags = ATELEM_ON | ATELEM_NEAREST;
@@ -5018,7 +5017,7 @@ static u32 sMeleeWeaponDamageFlags[][2] = {
  */
 void Player_SetupMeleeAttack(PlayState* play, Player* this, s32 newMWA) {
     s32 pad;
-    u32 dmgFlag;
+    u32 dmgFlags;
     s32 heldWeapon;
 
     Player_SetupAction(play, this, Player_Action_MeleeAttack, 0);
@@ -5041,7 +5040,7 @@ void Player_SetupMeleeAttack(PlayState* play, Player* this, s32 newMWA) {
 
     this->meleeWeaponAnimation = newMWA;
 
-    Player_AnimPlayOnceAdjusted(play, this, sMWAInfos[newMWA].attackAnim);
+    Player_AnimPlayOnceAdjusted(play, this, sMeleeWeaponAnimInfos[newMWA].attackAnim);
     if ((newMWA != PLAYER_MWA_FLIPSLASH_START) && (newMWA != PLAYER_MWA_JUMPSLASH_START)) {
         Player_StartAnimMovement(play, this,
                                  PLAYER_ANIM_MOVEMENT_RESET_BY_AGE | ANIM_FLAG_UPDATE_XZ | ANIM_FLAG_ENABLE_MOVEMENT);
@@ -5057,13 +5056,13 @@ void Player_SetupMeleeAttack(PlayState* play, Player* this, s32 newMWA) {
     }
 
     if ((newMWA >= PLAYER_MWA_FLIPSLASH_START) && (newMWA <= PLAYER_MWA_JUMPSLASH_FINISH)) {
-        dmgFlag = sMeleeWeaponDamageFlags[heldWeapon][1];
+        dmgFlags = sMeleeWeaponDamageFlags[heldWeapon][1];
     } else {
-        dmgFlag = sMeleeWeaponDamageFlags[heldWeapon][0];
+        dmgFlags = sMeleeWeaponDamageFlags[heldWeapon][0];
     }
 
-    Player_SetMeleeATFlags(this, 0, dmgFlag);
-    Player_SetMeleeATFlags(this, 1, dmgFlag);
+    Player_SetMeleeATFlags(this, 0, dmgFlags);
+    Player_SetMeleeATFlags(this, 1, dmgFlags);
 }
 
 /**
@@ -6490,7 +6489,7 @@ void func_8083AA10(Player* this, PlayState* play) {
                 !(this->skelAnime.movementFlags & ANIM_FLAG_OVERRIDE_MOVEMENT) &&
                 (Player_Action_NotOnGround != this->actionFunc) && (Player_Action_Jumpdive != this->actionFunc)) {
 
-                // Prevent falling from edges when melee attacking. Used with ISG.
+                // Prevent falling from edges when melee attacking. Part of ISG.
                 if ((sPrevFloorProperty == FLOOR_PROPERTY_7) || (this->meleeWeaponState != 0)) {
                     Math_Vec3f_Copy(&this->actor.world.pos, &this->actor.prevPos);
                     Player_ZeroSpeedXZ(this);
@@ -7035,15 +7034,15 @@ s32 Player_UseMeleeWeapon(Player* this) {
 
 /**
  * If able to do a jumpslash, call setup action.
- * @return 1 if can start jumpslash
+ * @return true if can start jumpslash
  */
 s32 Player_TryJumpslash(Player* this, PlayState* play) {
     if (Player_UseMeleeWeapon(this) && (sFloorType != FLOOR_TYPE_7)) {
         Player_SetupJumpslash(play, this, PLAYER_MWA_JUMPSLASH_START, 3.0f, 4.5f);
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 void Player_SetupRoll(Player* this, PlayState* play) {
@@ -8954,7 +8953,6 @@ void Player_Action_IdleHostile(Player* this, PlayState* play) {
     s16 yawDiff;
     s32 absDiff;
 
-    // Don't adjust yaw later in this function if just made melee attack (animation still playing)
     if (this->stateFlags3 & PLAYER_STATE3_MELEE_ATTACK) {
         if (Player_GetMeleeWeaponHeld(this) != 0) {
             this->stateFlags2 |= PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT;
@@ -9036,7 +9034,6 @@ void Player_Action_IdleHostile(Player* this, PlayState* play) {
         // If correct frame and no yaw problems, player can move slightly and still be idle.
         Math_AsymStepToF(&this->speedXZ, speedTarget * 0.3f, 2.0f, 1.5f);
 
-        // Small yaw adjustment, only if not ongoing melee attack animation
         if (!(this->stateFlags3 & PLAYER_STATE3_MELEE_ATTACK)) {
             Math_ScaledStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
         }
@@ -9914,6 +9911,7 @@ void Player_Action_PlantMagicBean(Player* this, PlayState* play) {
         Camera_SetFinishedFlag(Play_GetCamera(play, CAM_ID_MAIN));
     }
 }
+
 /**
  * Function to set meleeWeaponState to -1 for early frames of attack animation
  * followed by 1. When -1 only the blure effect is drawn. When 1 both the blure effect
@@ -9960,12 +9958,12 @@ void Player_RequestQuake(PlayState* play, s32 speed, s32 y, s32 duration) {
 }
 
 /**
- * Play quake, rumble and sound when Hammer hits. Also sets a flag used for Hammer
+ * Play quake, rumble and sound when Hammer hits. Also sets a timer used for Hammer
  * hit reactions (Tektike falling over etc), decreased every frame in Actor_UpdateAll.
  */
 void Player_HammerHitEffects(PlayState* play, Player* this) {
     Player_RequestQuake(play, 27767, 7, 20);
-    play->actorCtx.hammerHit = 4;
+    play->actorCtx.hammerShockwaveTimer = 4;
     Player_RequestRumble(this, 255, 20, 150, 0);
     Player_PlaySfx(this, NA_SE_IT_HAMMER_HIT);
 }
@@ -9987,7 +9985,6 @@ void Player_DecreaseStickUseNone(PlayState* play, Player* this) {
  * @return 1 if holding full-length Deku Stick, otherwise 0
  */
 s32 Player_BreakDekuStick(PlayState* play, Player* this) {
-    // unk_85C >0.5f is holding full length Deku Stick
     //! @bug Broken Deku Stick cannot break. Presumably leftover from earlier development.
     if ((this->heldItemAction == PLAYER_IA_DEKU_STICK) && (this->unk_85C > 0.5f)) {
         if (AMMO(ITEM_DEKU_STICK) != 0) {
@@ -10028,7 +10025,7 @@ s32 Player_DamageGiantsKnife(PlayState* play, Player* this) {
 /**
  * Call functions to try breaking Deku Stick and damaging Giant's Knife.
  */
-void Player_BreakDekuDamageKnife(PlayState* play, Player* this) {
+void Player_DamageMeleeWeapon(PlayState* play, Player* this) {
     Player_BreakDekuStick(play, this);
     Player_DamageGiantsKnife(play, this);
 }
@@ -10040,7 +10037,7 @@ static LinkAnimationHeader* sMeleeBounceAnim[] = {
     &gPlayerAnim_link_fighter_rebound_longR,
 };
 
-void Player_SetupMeleeBounce(PlayState* play, Player* this) {
+void Player_SetupMeleeAttackBounce(PlayState* play, Player* this) {
     s32 pad;
     s32 target;
 
@@ -10059,7 +10056,7 @@ void Player_SetupMeleeBounce(PlayState* play, Player* this) {
 
     Player_RequestRumble(this, 180, 20, 100, 0);
     this->speedXZ = -18.0f;
-    Player_BreakDekuDamageKnife(play, this);
+    Player_DamageMeleeWeapon(play, this);
 }
 
 /**
@@ -10071,8 +10068,8 @@ s32 Player_CheckMeleeInterrupt(PlayState* play, Player* this) {
     s32 bgId;
     Vec3f lineBase;
     Vec3f posCollision;
-    Vec3f baseToTip;
-    s32 AThit;
+    Vec3f tipToBase;
+    s32 atHit;
     s32 surfaceMaterial;
 
     // If player is in an active melee attack with colliders (not magic spin attack) and no bounce on attack
@@ -10084,7 +10081,7 @@ s32 Player_CheckMeleeInterrupt(PlayState* play, Player* this) {
 
                     weaponLengthFactor =
                         Math_Vec3f_DistXYZAndStoreDiff(MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0]),
-                                                       MELEE_WEAPON_INFO_BASE(&this->meleeWeaponInfo[0]), &baseToTip);
+                                                       MELEE_WEAPON_INFO_BASE(&this->meleeWeaponInfo[0]), &tipToBase);
                     if (weaponLengthFactor != 0.0f) {
                         weaponLengthFactor = (weaponLengthFactor + 10.0f) / weaponLengthFactor;
                     }
@@ -10092,16 +10089,20 @@ s32 Player_CheckMeleeInterrupt(PlayState* play, Player* this) {
                     // Tip + (weapon length * factor) results in a base that is slightly closer to player than the
                     // actual weapon base. Without this adjustment, attacks that are very close to a wall would
                     // not register as colliding (as the sword itself is not colliding).
-                    lineBase.x = MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0])->x + (baseToTip.x * weaponLengthFactor);
-                    lineBase.y = MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0])->y + (baseToTip.y * weaponLengthFactor);
-                    lineBase.z = MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0])->z + (baseToTip.z * weaponLengthFactor);
+                    lineBase.x =
+                        MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0])->x + (tipToBase.x * weaponLengthFactor);
+                    lineBase.y =
+                        MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0])->y + (tipToBase.y * weaponLengthFactor);
+                    lineBase.z =
+                        MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0])->z + (tipToBase.z * weaponLengthFactor);
 
                     // If attack hit a surface
                     //! @bug FLOOR_TYPE_6 (no fall damage), for instance Gerudo Fortress exterior walking areas,
                     //! causes melee weapon to not collide properly, such as Hammer vs the Gerudo staircase
                     //! (continues through the floor).
-                    if (BgCheck_EntityLineTest1(&play->colCtx, &lineBase, MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0]),
-                                                &posCollision, &groundPoly, true, false, false, true, &bgId) &&
+                    if (BgCheck_EntityLineTest1(&play->colCtx, &lineBase,
+                                                MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0]), &posCollision,
+                                                &groundPoly, true, false, false, true, &bgId) &&
                         !SurfaceType_IsIgnoredByEntities(&play->colCtx, groundPoly, bgId) &&
                         (SurfaceType_GetFloorType(&play->colCtx, groundPoly, bgId) != FLOOR_TYPE_6) &&
                         (Actor_HitJabuSurface(play, &this->actor, groundPoly, bgId, &posCollision) == 0)) {
@@ -10110,7 +10111,7 @@ s32 Player_CheckMeleeInterrupt(PlayState* play, Player* this) {
                         if (this->heldItemAction == PLAYER_IA_HAMMER) {
                             Player_SetFreezeFlashTimer(play);
                             Player_HammerHitEffects(play, this);
-                            Player_SetupMeleeBounce(play, this);
+                            Player_SetupMeleeAttackBounce(play, this);
                             return 1;
                         }
 
@@ -10129,7 +10130,7 @@ s32 Player_CheckMeleeInterrupt(PlayState* play, Player* this) {
                                 }
                             }
 
-                            Player_BreakDekuDamageKnife(play, this);
+                            Player_DamageMeleeWeapon(play, this);
                             this->speedXZ = -14.0f; // Recoil
                             Player_RequestRumble(this, 180, 20, 100, 0);
                         }
@@ -10137,26 +10138,26 @@ s32 Player_CheckMeleeInterrupt(PlayState* play, Player* this) {
                 }
                 // If AT_BOUNCE
             } else {
-                Player_SetupMeleeBounce(play, this);
+                Player_SetupMeleeAttackBounce(play, this);
                 Player_SetFreezeFlashTimer(play);
                 return 1;
             }
         }
 
         // If attack hit
-        AThit = (this->meleeWeaponQuads[0].base.atFlags & AT_HIT) || (this->meleeWeaponQuads[1].base.atFlags & AT_HIT);
+        atHit = (this->meleeWeaponQuads[0].base.atFlags & AT_HIT) || (this->meleeWeaponQuads[1].base.atFlags & AT_HIT);
 
-        if (AThit) {
+        if (atHit) {
             // Don't slow down spin attack
             if (this->meleeWeaponAnimation < PLAYER_MWA_SPIN_ATTACK_1H) {
-                Actor* at = this->meleeWeaponQuads[AThit ? 1 : 0].base.at;
+                Actor* at = this->meleeWeaponQuads[atHit ? 1 : 0].base.at;
 
                 if ((at != NULL) && (at->id != ACTOR_EN_KANBAN)) {
                     Player_SetFreezeFlashTimer(play);
                 }
             }
 
-            // If doesn't use Deku Stick or Hammer - try damaging Giant's Knife, and check electric backlash
+            // If not using Deku Stick or Hammer - try damaging Giant's Knife, and check electric backlash
             if ((Player_BreakDekuStick(play, this) == 0) && (this->heldItemAction != PLAYER_IA_HAMMER)) {
                 Player_DamageGiantsKnife(play, this);
 
@@ -16005,7 +16006,7 @@ void Player_UpdateBunnyEars(Player* this) {
 s32 Player_ActionHandler_MeleeBottleFish(Player* this, PlayState* play) {
     if (Player_SetupBottleFishing(play, this) == 0) {
         if (Player_UseMeleeWeapon(this) != 0) {
-            s32 meleeWeaponAnimation = Player_SetMeleeAttackFromStickInput(this);
+            s32 meleeWeaponAnimation = Player_GetMeleeWeaponAnimFromStickInput(this);
 
             Player_SetupMeleeAttack(play, this, meleeWeaponAnimation);
 
@@ -16026,7 +16027,7 @@ s32 Player_ActionHandler_MeleeBottleFish(Player* this, PlayState* play) {
 static Vec3f D_80854A40 = { 0.0f, 40.0f, 45.0f };
 
 void Player_Action_MeleeAttack(Player* this, PlayState* play) {
-    MWAInfo* currentMWA = &sMWAInfos[this->meleeWeaponAnimation];
+    MeleeWeaponAnimInfo* currentMWA = &sMeleeWeaponAnimInfos[this->meleeWeaponAnimation];
 
     this->stateFlags2 |= PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW;
 

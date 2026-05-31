@@ -401,7 +401,7 @@ s32 EnSw_HandleDamage(EnSw* this, PlayState* play) {
 
     // Hammer shockwave instakills Skullwalltula
     if (this->actor.xyzDistToPlayerSq < SQ(400.0f) && ENSW_TYPE(this) == ENSW_SKULLWALLTULA &&
-        play->actorCtx.hammerHit != 0) {
+        play->actorCtx.hammerShockwaveTimer != 0) {
         this->actor.colChkInfo.damage = this->actor.colChkInfo.health;
         hammerWave = true;
     }

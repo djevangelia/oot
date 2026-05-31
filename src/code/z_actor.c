@@ -2432,9 +2432,8 @@ void Actor_UpdateAll(PlayState* play, ActorContext* actorCtx) {
         play->numActorEntries = 0;
     }
 
-    // Hammer hit sets this to 4. If set, decrease
-    if (actorCtx->hammerHit != 0) {
-        actorCtx->hammerHit--;
+    if (actorCtx->hammerShockwaveTimer != 0) {
+        actorCtx->hammerShockwaveTimer--;
     }
 
 #if DEBUG_FEATURES
@@ -3266,6 +3265,7 @@ Actor* Actor_Spawn(ActorContext* actorCtx, PlayState* play, s16 actorId, f32 pos
     actor = ZELDA_ARENA_MALLOC(profile->instanceSize, name, 1);
 
     if (actor == NULL) {
+        //! @bug ACTOR_RST is passed as an argument instead of being part of the string
         PRINTF(ACTOR_COLOR_ERROR T("Ａｃｔｏｒクラス確保できません！ %s <サイズ＝%dバイト>\n",
                                    "Actor class cannot be reserved! %s <size=%d bytes>\n"),
                ACTOR_RST, name, profile->instanceSize);
