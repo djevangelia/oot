@@ -134,7 +134,7 @@ void EnTorch2_Init(Actor* thisx, PlayState* play2) {
     this->actor.colChkInfo.health = gSaveContext.save.info.playerData.healthCapacity >> 3;
     this->actor.colChkInfo.cylRadius = 60;
     this->actor.colChkInfo.cylHeight = 100;
-    play->func_11D54(this, play);
+    play->playerSetupIdle(this, play);
 
     sActionState = ENTORCH2_WAIT;
     sDodgeRollState = 0;
@@ -536,7 +536,7 @@ void EnTorch2_Update(Actor* thisx, PlayState* play2) {
 #if OOT_VERSION >= NTSC_1_2
                 Math_Vec3f_Copy(&this->actor.home.pos, &this->actor.world.pos);
 #endif
-                play->func_11D54(this, play);
+                play->playerSetupIdle(this, play);
                 sActionState = ENTORCH2_ATTACK;
                 sStickTilt = 0.0f;
                 if (sAlpha != 255) {

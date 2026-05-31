@@ -368,6 +368,7 @@ s32 OnePointCutscene_SetInfo(PlayState* play, s16 subCamId, s16 csId, Actor* act
             subCam->roll = 0;
             break;
 
+        // Wallmaster grab player
         case 9500: {
             static OnePointCsFull D_80120A54[3] = {
                 {
@@ -4289,6 +4290,7 @@ s32 OnePointCutscene_SetInfo(PlayState* play, s16 subCamId, s16 csId, Actor* act
             break;
         }
 
+        // Player death
         case 9806:
             subCam->timer = -99;
             if (Play_CamIsNotFixed(play)) {
@@ -4300,6 +4302,7 @@ s32 OnePointCutscene_SetInfo(PlayState* play, s16 subCamId, s16 csId, Actor* act
             }
             break;
 
+        // Fairy revive
         case 9908:
             if (Play_CamIsNotFixed(play)) {
                 static OnePointCsFull D_801231B4[4] = {

@@ -4094,17 +4094,15 @@ void Player_UseItem(PlayState* play, Player* this, s32 item) {
 
 /**
  * Selects death action depending on if player is swimming or on ground/wearing Iron Boots
+ * Starts given death animation
  * Also checks for Fairy in bottle for revival
  */
 void Player_SetupDeath(PlayState* play, Player* this, LinkAnimationHeader* anim) {
-    s32 cond = Player_SwimmingWithoutIronBoots(this);
+    s32 waterDeath = Player_SwimmingWithoutIronBoots(this);
 
     Player_ResetStatesHeldActor(play, this);
-
-    Player_SetupAction(play, this, cond ? Player_Action_DeathWater : Player_Action_DeathGround, 0);
-
+    Player_SetupAction(play, this, waterDeath ? Player_Action_DeathWater : Player_Action_DeathGround, 0);
     this->stateFlags1 |= PLAYER_STATE1_DEAD;
-
     Player_AnimPlayOnce(play, this, anim);
     if (anim == &gPlayerAnim_link_derth_rebirth) {
         this->skelAnime.endFrame = 84.0f;
@@ -4116,9 +4114,10 @@ void Player_SetupDeath(PlayState* play, Player* this, LinkAnimationHeader* anim)
     if (this->actor.category == ACTORCAT_PLAYER) {
         Audio_SetBgmVolumeOffDuringFanfare();
 
+        // Fairy check
         if (Inventory_FairyRevive(play)) {
             play->gameOverCtx.state = GAMEOVER_REVIVE_START;
-            this->av1.actionVar1 = 1;
+            this->av1.hasBottledFairy = true;
         } else {
             play->gameOverCtx.state = GAMEOVER_DEATH_START;
             Audio_StopBgmAndFanfare(0);
@@ -4127,7 +4126,7 @@ void Player_SetupDeath(PlayState* play, Player* this, LinkAnimationHeader* anim)
             gSaveContext.natureAmbienceId = NATURE_ID_DISABLED;
         }
 
-        OnePointCutscene_Init(play, 9806, cond ? 120 : 60, &this->actor, CAM_ID_MAIN);
+        OnePointCutscene_Init(play, 9806, waterDeath ? 120 : 60, &this->actor, CAM_ID_MAIN);
         Letterbox_SetSizeTarget(32);
     }
 }
@@ -8860,8 +8859,8 @@ s32 func_80840058(Player* this, f32* speedTarget, s16* yawTarget, PlayState* pla
 }
 
 /**
- * Sets which foot player currently has forward while targeting.
- * Another variable will increase/decrease to this value.
+ * Sets which foot player currently has forward while in animation with right-left difference (target).
+ * Another variable (weight) will increase/decrease to this value.
  * This smoothening is used when changing side walk direction to ensure smooth animation.
  */
 void Player_SetForwardFoot(Player* this, f32 speedTarget, s16 yawTarget) {
@@ -8875,7 +8874,7 @@ void Player_SetForwardFoot(Player* this, f32 speedTarget, s16 yawTarget) {
         }
     }
 
-    Math_StepToF(&this->forwardFootWeight, this->forwardFoot, 0.3f);
+    Math_StepToF(&this->forwardFootWeight, this->forwardFootTarget, 0.3f);
 }
 
 void Player_BlendIdleFootAnim(PlayState* play, Player* this) {
@@ -10352,8 +10351,9 @@ void Player_Action_ShieldBlock(Player* this, PlayState* play) {
 }
 
 /**
- * Taking damage when not running
- * This action is setup early in the frame, before the previous action runs.
+ * Taking damage when not running.
+ * This action is setup early in the gameframe and thus run the same frame
+ * (replacing the previous player action).
  */
 void Player_Action_DamageReaction(Player* this, PlayState* play) {
     s32 interruptResult;
@@ -10483,11 +10483,10 @@ static Vec3f sSpawnReviveFairyOffset = { 0.0f, 0.0f, 5.0f };
  * Handles Fairy revival on death - if no Fairy, advances the game over state
  */
 void Player_DeathRevival(PlayState* play, Player* this) {
-    // Runs if Fairy revive, 60 frame animation timer
-    if (this->av2.actionVar2 != 0) {
-        if (this->av2.actionVar2 > 0) {
-            this->av2.actionVar2--;
-            if (this->av2.actionVar2 == 0) {
+    if (this->av2.fairyReviveTimer != 0) {
+        if (this->av2.fairyReviveTimer > 0) {
+            this->av2.fairyReviveTimer--;
+            if (this->av2.fairyReviveTimer == 0) {
                 // Setup animation and health
                 if (this->stateFlags1 & PLAYER_STATE1_IN_WATER) {
                     LinkAnimation_Change(play, &this->skelAnime, &gPlayerAnim_link_swimer_swim_wait, 1.0f, 0.0f,
@@ -10498,9 +10497,9 @@ void Player_DeathRevival(PlayState* play, Player* this) {
                                          Animation_GetLastFrame(&gPlayerAnim_link_derth_rebirth), ANIMMODE_ONCE, 0.0f);
                 }
                 gSaveContext.healthAccumulator = 0x140;
-                this->av2.actionVar2 = -1;
+                this->av2.fairyReviveTimer = -1;
             }
-        // After animation setup done
+        // After revival, return to gameplay
         } else if (gSaveContext.healthAccumulator == 0) {
             this->stateFlags1 &= ~PLAYER_STATE1_DEAD;
             if (this->stateFlags1 & PLAYER_STATE1_IN_WATER) {
@@ -10512,9 +10511,9 @@ void Player_DeathRevival(PlayState* play, Player* this) {
             Player_SetInvulnerability(this, -20);
             Audio_SetBgmVolumeOnDuringFanfare();
         }
-    // Set to 1 by Player_SetupDeath if Fairy revive
-    } else if (this->av1.actionVar1 != 0) { 
-        this->av2.actionVar2 = 60;
+    // If have fairy, set timer and revive
+    } else if (this->av1.hasBottledFairy != 0) { 
+        this->av2.fairyReviveTimer = 60;
         Player_SpawnFairy(play, this, &this->actor.world.pos, &sSpawnReviveFairyOffset, FAIRY_REVIVE_DEATH);
         Player_PlaySfx(this, NA_SE_EV_FIATY_HEAL - SFX_FLAG);
         OnePointCutscene_Init(play, 9908, 125, &this->actor, CAM_ID_MAIN);
@@ -10524,7 +10523,7 @@ void Player_DeathRevival(PlayState* play, Player* this) {
     }
 }
 
-static AnimSfxEntry D_808545F0[] = {
+static AnimSfxEntry sGroundDeathAnimSfx[] = {
     { NA_SE_PL_BOUND, ANIMSFX_DATA(ANIMSFX_TYPE_FLOOR, 60) },
     { 0, ANIMSFX_DATA(ANIMSFX_TYPE_WALKING, 140) },
     { 0, ANIMSFX_DATA(ANIMSFX_TYPE_WALKING, 164) },
@@ -10546,6 +10545,7 @@ void Player_Action_DeathGround(Player* this, PlayState* play) {
 
     Player_DecelerateToZero(this);
 
+    // On death animation finish, continue the death sequence by fairy revival or game over
     if (LinkAnimation_Update(play, &this->skelAnime)) {
         if (this->actor.category == ACTORCAT_PLAYER) {
             Player_DeathRevival(play, this);
@@ -10554,7 +10554,7 @@ void Player_Action_DeathGround(Player* this, PlayState* play) {
     }
 
     if (this->skelAnime.animation == &gPlayerAnim_link_derth_rebirth) {
-        Player_ProcessAnimSfxList(this, D_808545F0);
+        Player_ProcessAnimSfxList(this, sGroundDeathAnimSfx);
     }
 #if OOT_VERSION >= PAL_1_0
     else if (this->skelAnime.animation == &gPlayerAnim_link_normal_electric_shock_end) {
@@ -11464,7 +11464,7 @@ void Player_Action_OpenDoor(Player* this, PlayState* play) {
     }
 
     if (!(this->stateFlags1 & PLAYER_STATE1_CUTSCENE) && LinkAnimation_OnFrame(&this->skelAnime, 15.0f)) {
-        play->func_11D54(this, play);
+        play->playerSetupIdle(this, play);
     }
 }
 
@@ -11893,7 +11893,7 @@ void Player_Init(Actor* thisx, PlayState* play2) {
     play->startPlayerFishing = Player_StartFishing;
     play->grabPlayer = Player_SetupGrabbed;
     play->tryPlayerCsAction = Player_TryCsAction;
-    play->func_11D54 = Player_SetupIdleOnceMorph;
+    play->playerSetupIdle = Player_SetupIdleOnceMorph;
     play->damagePlayer = Player_InflictDamage;
     play->talkWithPlayer = Player_StartTalking;
 
@@ -15086,19 +15086,22 @@ void Player_Action_DamageWater(Player* this, PlayState* play) {
         Player_SetupSwimIdle(play, this);
     }
 
+    // Decelerate to zero
     Player_GetSwimSpeedAndYaw(this, &this->speedXZ, 0.0f, this->actor.shape.rot.y);
 }
 
 /**
- * Die while in water
+ * Player dies in water without Iron Boots.
  */
 void Player_Action_DeathWater(Player* this, PlayState* play) {
-    Player_WaterBobbing(this);
+    Player_WaterBobbing(this);  // Keep bobbing even when dying
 
+    // On death animation finish, continue the death sequence by fairy revival or game over
     if (LinkAnimation_Update(play, &this->skelAnime)) {
         Player_DeathRevival(play, this);
     }
 
+    // Decelerate to zero
     Player_GetSwimSpeedAndYaw(this, &this->speedXZ, 0.0f, this->actor.shape.rot.y);
 }
 
