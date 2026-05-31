@@ -13846,7 +13846,11 @@ void Player_Action_GrabHoldBlock(Player* this, PlayState* play) {
     s16 yawTarget;
     s32 direction;
 
+<<<<<<< HEAD
     this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT | PLAYER_STATE2_PUSH_PULL_CAMERA;
+=======
+    this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_6 | PLAYER_STATE2_PUSH_PULL_CAMERA;
+>>>>>>> pushpull
     func_8083F524(play, this);
 
     if (LinkAnimation_Update(play, &this->skelAnime)) {
@@ -13884,7 +13888,11 @@ static AnimSfxEntry sBlockPushSfx[] = {
  * Push movable objects forward
  */
 void Player_Action_PushBlock(Player* this, PlayState* play) {
+<<<<<<< HEAD
     this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT | PLAYER_STATE2_PUSH_PULL_CAMERA;
+=======
+    this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_6 | PLAYER_STATE2_PUSH_PULL_CAMERA;
+>>>>>>> pushpull
 
     if (Player_IfAnimDoneLoopThis(play, this, &gPlayerAnim_link_normal_pushing)) {
         this->av2.actionVar2 = 1;
@@ -13979,8 +13987,8 @@ void Player_Action_PullBlock(Player* this, PlayState* play) {
             curPos.x = this->actor.world.pos.x;
             curPos.z = this->actor.world.pos.z;
             curPos.y = relPos.y;
-            if (!BgCheck_EntityLineTest1(&play->colCtx, &curPos, &relPos, &posResult, &outPoly, true, false, false, true,
-                                         &bgId)) {
+            if (!BgCheck_EntityLineTest1(&play->colCtx, &curPos, &relPos, &posResult, &outPoly, true, false, false,
+                                         true, &bgId)) {
                 Player_PushPullBlock(play, this, -2.0f);
                 return;
             }
