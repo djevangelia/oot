@@ -2285,7 +2285,7 @@ void Player_ProcessControlStick(PlayState* play, Player* this) {
 }
 
 /**
- * Plays an animation adjusted for water speed factor
+ * Plays an animation adjusted for water speed factor, e.g. a water speed factor of 0.5f halves the animation speed.
  */
 void Player_AnimPlayOnceWaterSpeed(PlayState* play, Player* this, LinkAnimationHeader* linkAnim) {
     LinkAnimation_PlayOnceSetSpeed(play, &this->skelAnime, linkAnim, sWaterSpeedFactor);
@@ -2367,7 +2367,7 @@ void Player_ProcessFidgetAnimSfxList(Player* this, s32 fidgetAnimIndex) {
  */
 LinkAnimationHeader* Player_GetRunAnim(Player* this) {
     // Player has recently taken damage while running
-    if (this->damageRunTimer != 0) {
+    if (this->runDamageTimer != 0) {
         return GET_PLAYER_ANIM(PLAYER_ANIMGROUP_damage_run, this->modelAnimType);
     } else if (!(this->stateFlags1 & (PLAYER_STATE1_IN_WATER | PLAYER_STATE1_CUTSCENE)) &&
                (this->currentBoots == PLAYER_BOOTS_IRON)) {
@@ -2385,8 +2385,8 @@ int Player_IsAimingBoomerang(Player* this) {
 }
 
 /**
- * Idle animations selected depending on aiming Boomerang/ranged or not and which foot
- * should be forward. Hostile Z-target
+ * Idle animation selected depending on aiming Boomerang or not and which foot
+ * should be forward. Used when using Boomerang and when idle hostile.
  */
 LinkAnimationHeader* Player_GetIdleAnimRightForward(Player* this) {
     if (Player_IsAimingBoomerang(this)) {
@@ -2714,7 +2714,7 @@ int Player_IsZTargetingWithHostileUpdate(Player* this) {
  * Reset which foot is currently forward, used with fast sidewalk, hostile idle etc.
  */
 void Player_ResetForwardFootWeight(Player* this) {
-    this->forwardFootWeight = this->forwardFoot = 0.0f;
+    this->forwardFootWeight = this->forwardFootTarget = 0.0f;
 }
 
 /**
@@ -3890,7 +3890,7 @@ s32 Player_SetupAction(PlayState* play, Player* this, PlayerActionFunc actionFun
     this->stateFlags1 &= ~(PLAYER_STATE1_HOOKSHOT_LAND | PLAYER_STATE1_TALKING | PLAYER_STATE1_KNOCKBACK_FROZEN | PLAYER_STATE1_28 |
                            PLAYER_STATE1_CUTSCENE | PLAYER_STATE1_FALL_VOID_GROTTO);
     this->stateFlags2 &= ~(PLAYER_STATE2_SIDEHOP_BACKFLIP | PLAYER_STATE2_USING_OCARINA | PLAYER_STATE2_IDLE_FIDGET);
-    this->stateFlags3 &= ~(PLAYER_STATE3_KNOCKBACK_JUMPSLASH | PLAYER_STATE3_MELEE_ATTACK | PLAYER_STATE3_FLYING_WITH_HOOKSHOT);
+    this->stateFlags3 &= ~(PLAYER_STATE3_KNOCKBACK_JUMPSLASH | PLAYER_STATE3_ENDING_MELEE_ATTACK | PLAYER_STATE3_FLYING_WITH_HOOKSHOT);
 
     this->av1.actionVar1 = 0;
     this->av2.actionVar2 = 0;
@@ -5148,7 +5148,7 @@ void Player_HandleDamageHitResponse(PlayState* play, Player* this, s32 hitRespon
         func_80837B60(this);
     }
 
-    this->damageRunTimer = 0;
+    this->runDamageTimer = 0;
 
     Player_PlaySfx(this, NA_SE_PL_DAMAGE);
 
@@ -5243,7 +5243,7 @@ void Player_HandleDamageHitResponse(PlayState* play, Player* this, s32 hitRespon
         } else { // Non-knockback damage
             // If player is running and not targeting hostile, do not start damage action
             if ((this->speedXZ > 4.0f) && !Player_CheckHostileLockOn(this)) {
-                this->damageRunTimer = 20;
+                this->runDamageTimer = 20;
                 Player_RequestRumble(this, 120, 20, 10, 0);
                 Player_PlayVoiceSfx(this, NA_SE_VO_LI_DAMAGE_S);
                 return;
@@ -6170,11 +6170,14 @@ void Player_SetupIdleHostileWithFootWeight(Player* this, PlayState* play) {
         this->forwardFootWeight = 1.0f;
     }
 
-    this->forwardFoot = this->forwardFootWeight;
+    this->forwardFootTarget = this->forwardFootWeight;
     Player_AnimPlayLoop(play, this, anim);
     this->yaw = this->actor.shape.rot.y;
 }
 
+/**
+ * Setup idle with parallel mode
+ */
 void Player_SetupIdleParallel(Player* this, PlayState* play) {
     Player_SetupAction(play, this, Player_Action_IdleParallel, 1);
     Player_AnimChangeOnceMorph(play, this, Player_GetIdleAnim(this));
@@ -6183,7 +6186,7 @@ void Player_SetupIdleParallel(Player* this, PlayState* play) {
 
 /**
  * Sets up idle action depending on no target/parallel/hostile Z-target
- * by calling their setup functions, which also set animations.
+ * by calling their setup functions, which also set idle animations.
  */
 void Player_SetupIdleDependingOnTarget(Player* this, PlayState* play) {
     if (Player_CheckHostileLockOn(this)) {
@@ -6197,7 +6200,7 @@ void Player_SetupIdleDependingOnTarget(Player* this, PlayState* play) {
 
 /**
  * Sets action function to idle function depending on no target/parallel/Z-target.
- * Does not setup animations!
+ * Does not set new animations, keeps previously set animation.
  */
 void Player_SetupIdleDependingOnTargetKeepAnim(Player* this, PlayState* play) {
     PlayerActionFunc actionFunc;
@@ -7129,7 +7132,7 @@ s32 Player_ActionHandler_10(Player* this, PlayState* play) {
     return 0;
 }
 
-void Player_StopRunWalkAnim(Player* this, PlayState* play) {
+void Player_PlayStopRunWalkAnim(Player* this, PlayState* play) {
     LinkAnimationHeader* anim;
     f32 sp30;
 
@@ -7160,11 +7163,11 @@ void Player_StopRunWalkAnim(Player* this, PlayState* play) {
 }
 
 /**
- * Setup idle depending on target and play stop run/walk animation
+ * Setup idle depending on if target and play stop run/walk animation
  */
 void Player_SetupIdleWithStopRunWalkAnim(Player* this, PlayState* play) {
     Player_SetupIdleDependingOnTargetKeepAnim(this, play);
-    Player_StopRunWalkAnim(this, play);
+    Player_PlayStopRunWalkAnim(this, play);
 }
 
 /**
@@ -8866,9 +8869,9 @@ void Player_SetForwardFoot(Player* this, f32 speedTarget, s16 yawTarget) {
 
     if (speedTarget > 0.0f) {
         if (yawDiff < 0) {
-            this->forwardFoot = 0.0f;
+            this->forwardFootTarget = 0.0f;
         } else {
-            this->forwardFoot = 1.0f;
+            this->forwardFootTarget = 1.0f;
         }
     }
 
@@ -8886,25 +8889,25 @@ void Player_BlendIdleFootAnim(PlayState* play, Player* this) {
  * animation and current speed
  */
 s32 Player_ShouldPlaySteppingSfx(f32 moveFrame, f32 speed, f32 frameCount, f32 targetFrame) {
-    f32 temp;
+    f32 diff;
 
     // Is never run
     if ((targetFrame == 0.0f) && (speed > 0.0f)) {
         targetFrame = frameCount;
     }
 
-    temp = (moveFrame + speed) - targetFrame;
+    diff = (moveFrame + speed) - targetFrame;
 
-    if (((temp * speed) >= 0.0f) && (((temp - speed) * speed) < 0.0f)) {
-        return 1;   // Play sound
+    if (((diff * speed) >= 0.0f) && (((diff - speed) * speed) < 0.0f)) {
+        return true; // Play sound
     }
 
-    return 0;
+    return false;
 }
 
 /**
  * Sets which frame of the walk-run cycle/animation player is currently in, and checks
- * if stepping sounds should be played. 
+ * if stepping sounds should be played.
  */
 void Player_SetMoveFramePlaySfx(Player* this, f32 speed) {
     f32 updateScale = R_UPDATE_RATE * 0.5f;
@@ -8923,7 +8926,8 @@ void Player_SetMoveFramePlaySfx(Player* this, f32 speed) {
         (this->hoverBootsTimer != 0)) {
         Actor_PlaySfx_Flagged2(&this->actor, NA_SE_PL_HOBBERBOOTS_LV - SFX_FLAG);
         // Play footsteps depending on frame position of the walk/run cycle
-    } else if (Player_ShouldPlaySteppingSfx(this->moveFrame, speed, 29.0f, 10.0f) || Player_ShouldPlaySteppingSfx(this->moveFrame, speed, 29.0f, 24.0f)) {
+    } else if (Player_ShouldPlaySteppingSfx(this->moveFrame, speed, 29.0f, 10.0f) ||
+               Player_ShouldPlaySteppingSfx(this->moveFrame, speed, 29.0f, 24.0f)) {
         Player_PlaySteppingSfx(this, this->speedXZ);
         // If running fast, certain enemies can detect us
         if (this->speedXZ > 4.0f) {
@@ -8953,21 +8957,22 @@ void Player_Action_IdleHostile(Player* this, PlayState* play) {
     s16 yawDiff;
     s32 absDiff;
 
-    if (this->stateFlags3 & PLAYER_STATE3_MELEE_ATTACK) {
+    // Don't adjust yaw later in this function if just made melee attack (animation still playing)
+    if (this->stateFlags3 & PLAYER_STATE3_ENDING_MELEE_ATTACK) {
         if (Player_GetMeleeWeaponHeld(this) != 0) {
             this->stateFlags2 |= PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT;
         } else {
-            this->stateFlags3 &= ~PLAYER_STATE3_MELEE_ATTACK;
+            this->stateFlags3 &= ~PLAYER_STATE3_ENDING_MELEE_ATTACK;
         }
     }
 
-    // Ensure that any play-once-animation finishes before starting idle animation
+    // Ensure that any play once-animation finishes before starting idle animation
     if (this->av2.waitForAnimDone != 0) {
         if (LinkAnimation_Update(play, &this->skelAnime)) {
             Player_FinishAnimMovement(this);
             Player_AnimPlayLoop(play, this, Player_GetIdleAnimRightForward(this));
             this->av2.waitForAnimDone = 0;
-            this->stateFlags3 &= ~PLAYER_STATE3_MELEE_ATTACK;
+            this->stateFlags3 &= ~PLAYER_STATE3_ENDING_MELEE_ATTACK;
         }
         Player_ResetForwardFootWeight(this);
     } else {
@@ -9010,7 +9015,7 @@ void Player_Action_IdleHostile(Player* this, PlayState* play) {
         Player_SetMoveFramePlaySfx(this, (this->speedXZ * 0.3f) + 1.0f);
         Player_SetForwardFoot(this, speedTarget, yawTarget);
 
-        // In practice this makes player unable to move in this action 
+        // In practice this makes player unable to move in this action
         // during moveFrame 0-5 and 14-19, making animation match movement.
         curFrame = this->moveFrame;
         if ((curFrame < 6) || ((curFrame - 14) < 6)) {
@@ -9034,7 +9039,8 @@ void Player_Action_IdleHostile(Player* this, PlayState* play) {
         // If correct frame and no yaw problems, player can move slightly and still be idle.
         Math_AsymStepToF(&this->speedXZ, speedTarget * 0.3f, 2.0f, 1.5f);
 
-        if (!(this->stateFlags3 & PLAYER_STATE3_MELEE_ATTACK)) {
+        // Small yaw adjustment, only if not ongoing melee attack animation
+        if (!(this->stateFlags3 & PLAYER_STATE3_ENDING_MELEE_ATTACK)) {
             Math_ScaledStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
         }
     }
@@ -10276,8 +10282,8 @@ void Player_Action_ShieldCrouch(Player* this, PlayState* play) {
                     if (this->itemAction < 0) { // Shielding sets IA -1
                         Player_RestoreHeldIA(this);
                     }
-                    Player_PlayAnimAndSetupIdle(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_defense_end, this->modelAnimType),
-                                             play);
+                    Player_PlayAnimAndSetupIdle(
+                        this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_defense_end, this->modelAnimType), play);
                 }
 
                 Player_PlaySfx(this, NA_SE_IT_SHIELD_REMOVE);
@@ -11333,7 +11339,7 @@ s32 func_80845964(PlayState* play, Player* this, CsCmdActorCue* cue, f32 arg3, s
     func_8083DF68(this, arg3, arg4);
 
     if ((arg3 == 0.0f) && (this->speedXZ == 0.0f)) {
-        Player_StopRunWalkAnim(this, play);
+        Player_PlayStopRunWalkAnim(this, play);
     }
 
     return false;
@@ -12898,8 +12904,8 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
         this->invincibilityTimer--;
     }
 
-    if (this->damageRunTimer != 0) {
-        this->damageRunTimer--;
+    if (this->runDamageTimer != 0) {
+        this->runDamageTimer--;
     }
 
     Player_UpdateInterface(play, this);
@@ -13846,11 +13852,7 @@ void Player_Action_GrabHoldBlock(Player* this, PlayState* play) {
     s16 yawTarget;
     s32 direction;
 
-<<<<<<< HEAD
     this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT | PLAYER_STATE2_PUSH_PULL_CAMERA;
-=======
-    this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_6 | PLAYER_STATE2_PUSH_PULL_CAMERA;
->>>>>>> pushpull
     func_8083F524(play, this);
 
     if (LinkAnimation_Update(play, &this->skelAnime)) {
@@ -13888,11 +13890,7 @@ static AnimSfxEntry sBlockPushSfx[] = {
  * Push movable objects forward
  */
 void Player_Action_PushBlock(Player* this, PlayState* play) {
-<<<<<<< HEAD
     this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT | PLAYER_STATE2_PUSH_PULL_CAMERA;
-=======
-    this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_6 | PLAYER_STATE2_PUSH_PULL_CAMERA;
->>>>>>> pushpull
 
     if (Player_IfAnimDoneLoopThis(play, this, &gPlayerAnim_link_normal_pushing)) {
         this->av2.actionVar2 = 1;
@@ -16081,7 +16079,7 @@ void Player_Action_MeleeAttack(Player* this, PlayState* play) {
                 Player_PlayAnimAndSetupIdle(this, postAttackAnim, play); // Play animation + set new action function
 
                 this->skelAnime.movementFlags = saveFlags;
-                this->stateFlags3 |= PLAYER_STATE3_MELEE_ATTACK;
+                this->stateFlags3 |= PLAYER_STATE3_ENDING_MELEE_ATTACK;
             }
         } else if (this->heldItemAction == PLAYER_IA_HAMMER) {
             if ((this->meleeWeaponAnimation == PLAYER_MWA_HAMMER_FORWARD) ||

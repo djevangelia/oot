@@ -774,7 +774,7 @@ typedef struct WeaponInfo {
 #define PLAYER_STATE3_DARK_LINK_FALL (1 << 0) // Set on Dark Link when damaged to remove collision detection and allow him to fall through the floor
 #define PLAYER_STATE3_KNOCKBACK_JUMPSLASH (1 << 1) // Player is in the air and cannot control their movement due to being knocked back or doing a jumpslash
 #define PLAYER_STATE3_DARK_LINK_IMMOBILIZED (1 << 2) // Set on Link when Dark Link has jumped onto his sword. Set on Dark Link when Link uses Deku Nut. Inhibits action functions.
-#define PLAYER_STATE3_MELEE_ATTACK (1 << 3) // Set after melee attacks, maintained shortly by hostile idle action to avoid adjusting yaw
+#define PLAYER_STATE3_ENDING_MELEE_ATTACK (1 << 3) // Set after melee attacks, maintained shortly by hostile idle action to avoid adjusting yaw
 #define PLAYER_STATE3_CHECK_GROUND_COLLISION (1 << 4) // Set if flags say ground collision should be checked. Removed intraframe. Never checked for anywhere.
 #define PLAYER_STATE3_OCARINA_GAME (1 << 5) // Force player to use Ocarina after agreeing to Skullkid Ocarina game 
 #define PLAYER_STATE3_RESTORE_NAYRUS_LOVE (1 << 6) // Set by ocarina effects actors when destroyed to signal Nayru's Love may be restored (see `ACTOROVL_ALLOC_ABSOLUTE`)
@@ -939,9 +939,9 @@ typedef struct Player {
     /* 0x0862 */ s8 giDrawID; // get item draw ID + 1
     /* 0x0864 */ f32 unk_864;
     /* 0x0868 */ f32 moveFrame; // Current frame of the walk-run cycle animation.
-    /* 0x086C */ f32 unused_86C;
+    /* 0x086C */ f32 unk_86C;
     /* 0x0870 */ f32 forwardFootWeight; // See below. Serves same function, but is changed by intervals and so also used to weight animations.
-    /* 0x0874 */ f32 forwardFoot; // 0 = right. Which foot is forward/more anterior when sidewalking and throwing Boomerang
+    /* 0x0874 */ f32 forwardFootTarget; // 0 = right. Which foot is forward/more anterior when sidewalking and throwing Boomerang
     /* 0x0878 */ f32 unk_878;
     /* 0x087C */ s16 unk_87C;
     /* 0x087E */ s16 turnRate; // Amount angle is changed every frame when turning in place
@@ -952,7 +952,7 @@ typedef struct Player {
     /* 0x088D */ u8 ledgeClimbDelayTimer;
     /* 0x088E */ u8 textboxBtnCooldownTimer; // Prevents usage of A/B/C-up when counting down
     /* 0x088F */ u8 damageFlickerAnimCounter; // Used to flicker Link after taking damage
-    /* 0x0890 */ u8 damageRunTimer; // Frames that player will run with slouched damage posture after taking damage while running
+    /* 0x0890 */ u8 runDamageTimer; // Frames that player will run with slouched damage posture after taking damage while running
     /* 0x0891 */ u8 bodyShockTimer;
     /* 0x0892 */ u8 unk_892;
     /* 0x0893 */ u8 hoverBootsTimer;
