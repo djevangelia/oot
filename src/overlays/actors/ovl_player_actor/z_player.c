@@ -1880,7 +1880,7 @@ void Player_ResetStates(PlayState* play, Player* this) {
 
 /**
  * Puts away item currently in hand (determined by held item action), if holding any.
- * @return  true if an item needs to be put away, false if not.
+ * @return true if an item needs to be put away, false if not.
  */
 s32 Player_PutAwayHeldItem(PlayState* play, Player* this) {
     if (this->heldItemAction >= PLAYER_IA_FISHING_POLE) {
@@ -1903,7 +1903,7 @@ void Player_ResetStatesHeldActor(PlayState* play, Player* this) {
  * When caught by Moblin, Redead etc.
  * @param baseValue Increase actionVar2 by at least this every frame, together with inputs
  * @param goalValue When actionVar2 is higher, Player breaks free
- * @return 1 if Player breaks free
+ * @return true if Player breaks free
  */
 s32 Player_TryBreakingFree(Player* this, s32 baseValue, s32 freeValue) {
     s16 controlStickAngleDiff = this->prevControlStickAngle - sControlStickAngle;
@@ -2924,7 +2924,8 @@ void Player_UpdateItems(Player* this, PlayState* play) {
 
 /**
  * Returns current ammo for Bow or Slingshot.
- * This function forces adult to use arrows and child to use seeds.
+ * This function forces adult to use arrows and child to use seeds no matter
+ * which weapon is equipped.
  */
 s32 Player_ReturnItemAmmo(PlayState* play, Player* this, s32* itemPtr, s32* typePtr) {
     if (LINK_IS_ADULT) {
@@ -2945,7 +2946,7 @@ s32 Player_ReturnItemAmmo(PlayState* play, Player* this, s32* itemPtr, s32* type
     // If doing Gerudo Horseback Archery
     if (gSaveContext.minigameState == 1) {
         return play->interfaceCtx.hbaAmmo;
-        // If doing a minigame
+    // If doing a minigame
     } else if (play->shootingGalleryStatus != 0) {
         return play->shootingGalleryStatus;
     } else {
@@ -3099,9 +3100,9 @@ s32 Player_StartStandShield(PlayState* play, Player* this) {
         LinkAnimation_Change(play, &this->upperSkelAnime, anim, 1.0f, frame, frame, ANIMMODE_ONCE, 0.0f);
         Player_PlaySfx(this, NA_SE_IT_SHIELD_POSTURE);
 
-        return 1;
+        return true;
     } else {
-        return 0;
+        return false;
     }
 }
 
@@ -3153,16 +3154,16 @@ void Player_WaitToFinishItemChange(PlayState* play, Player* this) {
 
 /**
  * Called only by Player_UpperAction_Sword.
- * @return 1 if starting, else 0
+ * @return true if starting, else false
  */
 s32 Player_IsStartingItemChange(Player* this, PlayState* play) {
     if (this->stateFlags1 & PLAYER_STATE1_START_CHANGING_HELD_ITEM) {
         Player_StartChangingHeldItem(this, play);
     } else {
-        return 0;
+        return false;
     }
 
-    return 1;
+    return true;
 }
 
 /**
@@ -3273,7 +3274,7 @@ s32 Player_UpperAction_StopStandShield(Player* this, PlayState* play) {
 /**
  * Sets up animations for entering aiming with Bow, Slingshot, Hookshot, Boomerang
  * and setting next upper action function.
- * @return 0 if unable to load weapon (trying to use magic arrows when magic not available),
+ * @return false if unable to load weapon (trying to use magic arrows when magic not available),
  * otherwise 1
  */
 s32 Player_Ranged_InitAnimations(Player* this, PlayState* play) {
@@ -3283,7 +3284,7 @@ s32 Player_Ranged_InitAnimations(Player* this, PlayState* play) {
         // Next upper action function is set here (Player_UpperAction_RangedLoaded).
         // (Even though this is a function for loading ranged weapon, here it is used for initialization)
         if (!Player_Ranged_LoadWeapon(this, play)) {
-            return 0;
+            return false;
         }
 
         // Select upper animation for entering aiming position
@@ -3308,7 +3309,7 @@ s32 Player_Ranged_InitAnimations(Player* this, PlayState* play) {
         Player_AnimPlayLoop(play, this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_wait, this->modelAnimType));
     }
 
-    return 1;
+    return true;
 }
 
 /**
@@ -3374,7 +3375,7 @@ s32 Player_Ranged_InitAiming(Player* this, PlayState* play) {
         }
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -3390,10 +3391,10 @@ s32 Player_HookshotAvailable(Player* this) {
             Player_PlaySfx(this, NA_SE_IT_HOOKSHOT_RECEIVE);
         }
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -3980,7 +3981,7 @@ void Player_DestroyHookshot(Player* this) {
  * Note that held item and item action + held item action are NOT set at the same time, which in combination
  * with flaws in other item functions is a source of item-related bugs (mismatch between held item and
  * player's set item actions).
- * @param item the used item (held or new)
+ * @param item the used item ID (held or new)
  */
 void Player_UseItem(PlayState* play, Player* this, s32 item) {
     s8 useItemIA;
