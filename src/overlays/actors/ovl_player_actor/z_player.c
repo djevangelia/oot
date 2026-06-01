@@ -146,7 +146,7 @@ typedef struct MeleeWeaponAnimInfo {
 typedef struct MountAnimInfo {
     /* 0x00 */ LinkAnimationHeader* anim;
     /* 0x04 */ f32 unk_04;
-    /* 0x04 */ f32 unk_08;
+    /* 0x08 */ f32 unk_08;
 } MountAnimInfo; // size = 0x0C
 
 typedef struct struct_80854B18 {

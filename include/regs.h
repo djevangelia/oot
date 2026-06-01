@@ -56,7 +56,7 @@ struct PlayState;
 #define R_BOOT_GRAVITY                           REG(68)
 #define R_DARK_LINK_JUMP                         REG(69)
 #define R_ENABLE_ARENA_DBG                       SREG(0)
-#define R_AUDIOMGR_DEBUG_LEVEL                   SREG(20)
+#define R_AUDIOMGR_ACTIVITY_LEVEL                SREG(20)
 #define R_ROOM_IMAGE_NODRAW_FLAGS                SREG(25)
 #define R_ROOM_BG2D_FORCE_SCALEBG                SREG(26)
 #define R_UPDATE_RATE                            SREG(30)
