@@ -1846,7 +1846,7 @@ void Player_DetachHeldActor(PlayState* play, Player* this) {
 }
 
 /**
- * Kind of a "reset" function when changing between different actions/states.
+ * A "reset" function when changing between different actions/states.
  * Often called together with Player_DetachHeldActor (by Player_ResetStatesHeldActor).
  */
 void Player_ResetStates(PlayState* play, Player* this) {
@@ -2292,7 +2292,7 @@ void Player_AnimPlayOnceWaterSpeed(PlayState* play, Player* this, LinkAnimationH
 }
 
 /**
- * @return 1 if Player is currently in water (PLAYER_STATE1_IN_WATER) not wearing Iron Boots
+ * @return true if Player is currently in water (PLAYER_STATE1_IN_WATER) not wearing Iron Boots
  */
 int Player_SwimmingWithoutIronBoots(Player* this) {
     return (this->stateFlags1 & PLAYER_STATE1_IN_WATER) && (this->currentBoots != PLAYER_BOOTS_IRON);
@@ -3639,16 +3639,16 @@ void Player_SetParallel(Player* this) {
 
 /**
  * Check if an actor is null. Often used with heldActor and interactActor.
- * @return 1 if actor is null
+ * @return true if actor is null
  */
 s32 Player_ActorIsNull(PlayState* play, Player* this, Actor* actor) {
     if (actor == NULL) {
         Player_ResetStatesHeldActor(play, this);
         Player_SetupIdleDependingOnTarget(this, play);
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -10512,7 +10512,7 @@ void Player_DeathRevival(PlayState* play, Player* this) {
             Audio_SetBgmVolumeOnDuringFanfare();
         }
     // If have fairy, set timer and revive
-    } else if (this->av1.hasBottledFairy != 0) { 
+    } else if (this->av1.hasBottledFairy != 0) {
         this->av2.fairyReviveTimer = 60;
         Player_SpawnFairy(play, this, &this->actor.world.pos, &sSpawnReviveFairyOffset, FAIRY_REVIVE_DEATH);
         Player_PlaySfx(this, NA_SE_EV_FIATY_HEAL - SFX_FLAG);

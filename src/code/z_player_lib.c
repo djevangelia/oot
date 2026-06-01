@@ -1288,7 +1288,11 @@ void func_8008F87C(PlayState* play, Player* this, SkelAnime* skelAnime, Vec3f* p
 
             floorType = SurfaceType_GetFloorType(&play->colCtx, sp88, sp84);
 
+<<<<<<< HEAD
             if ((floorType >= FLOOR_TYPE_2) && (floorType <= FLOOR_TYPE_3) && !SurfaceType_DamageIsNotLava(&play->colCtx, sp88, sp84)) {
+=======
+            if ((temp3 >= FLOOR_TYPE_2) && (temp3 <= FLOOR_TYPE_3) && !SurfaceType_DamageIsNotLava(&play->colCtx, sp88, sp84)) {
+>>>>>>> deathdocs
                 footprintPos.y = sp80;
                 EffectSsGFire_Spawn(play, &footprintPos);
             }
