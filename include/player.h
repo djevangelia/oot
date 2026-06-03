@@ -740,7 +740,7 @@ typedef struct WeaponInfo {
 
 #define PLAYER_STATE2_GRAB_HOLD (1 << 0) // Set when able to grab onto something movable (blocks, Forest Temple rotating wall) or heavy block. Continuously set when holding, pushing and pulling objects.
 #define PLAYER_STATE2_CAN_ACCEPT_TALK_OFFER (1 << 1) // Can accept a talk offer. "Speak" or "Check" is shown on the A button.
-#define PLAYER_STATE2_2 (1 << 2)
+#define PLAYER_STATE2_CAN_CLIMB_GRABBABLE (1 << 2) // Set when player is moving toward a grabbable and climbable object, to change A button action from grab to climb
 #define PLAYER_STATE2_MAKING_NOISE (1 << 3) // Set for one frame by Player_PlayItemNoise for melee attacks, changing items, using masks. Also when fast walking. Allows detection by certain enemies
 #define PLAYER_STATE2_PUSH_PULL (1 << 4) // Set by pushing and pulling actions. Blocks, graves, etc. Often removed by the movable actor! (to limit distance etc.)
 #define PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW (1 << 5) // See Player_UpdateShapeYaw. Shape yaw can only be adjusted in movement direction.
@@ -753,7 +753,7 @@ typedef struct WeaponInfo {
 #define PLAYER_STATE2_CLIMB_STILL (1 << 12) // Climbing but currently not moving
 #define PLAYER_STATE2_LOCK_ON_WITH_SWITCH (1 << 13) // Actor lock-on is active, specifically with Switch Targeting. Hold Targeting checks the state of the Z button instead of this flag.
 #define PLAYER_STATE2_FROZEN (1 << 14) // Used to draw the ice block encasing Link when frozen
-#define PLAYER_STATE2_15 (1 << 15) // Twinrova related
+#define PLAYER_STATE2_TWINROVA_FREEZE (1 << 15) // Frozen by Twinrova - retains falling by gravity
 #define PLAYER_STATE2_DO_ACTION_ENTER (1 << 16) // Sets the "Enter On A" DoAction
 #define PLAYER_STATE2_RELEASE_SPIN_ATTACK (1 << 17) // Set when a spin attack release starts, to signal the En_M_Thunder actor. Remains set for spin duration if non-magic spin attack (for sword collision).
 #define PLAYER_STATE2_CRAWLING (1 << 18) // Crawling through a crawlspace
@@ -761,8 +761,8 @@ typedef struct WeaponInfo {
 #define PLAYER_STATE2_NAVI_ACTIVE (1 << 20) // Navi is visible and active. Could be hovering idle near Link or hovering over other actors.
 #define PLAYER_STATE2_NAVI_TALK_AVAILABLE (1 << 21) // Possible to speak with Navi through C-up. Hint, Z-target, other actors with info.
 #define PLAYER_STATE2_CAN_HORSE_DISMOUNT (1 << 22) // Can dismount from riding horse
-#define PLAYER_STATE2_23 (1 << 23) // Ocarina NPC related
-#define PLAYER_STATE2_24 (1 << 24) // Ocarina NPC related
+#define PLAYER_STATE2_OCARINA_INVITE (1 << 23) // Actor is "inviting" player to play Ocarina. If player puts up Ocarina in this state, the actor will react.
+#define PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR (1 << 24) // Player has "accepted the Ocarina invite" and is now using Ocarina next to the actor
 #define PLAYER_STATE2_25 (1 << 25) // Ocarina NPC related
 #define PLAYER_STATE2_DARK_LINK_ROOM_SHADOW (1 << 26) // Set by Dark Link's room as long as Dark Link is not spawned. Causes Link's shadow to be drawn in the water.
 #define PLAYER_STATE2_USING_OCARINA (1 << 27) // Playing the ocarina or warping out from an ocarina warp song
@@ -881,7 +881,7 @@ typedef struct Player {
     /* 0x069C */ char unk_69C[0x004];
     /* 0x06A0 */ f32 unk_6A0;
     /* 0x06A4 */ f32 closestSecretDistSq;
-    /* 0x06A8 */ Actor* unk_6A8;
+    /* 0x06A8 */ Actor* ocarinaTalkActor; // Actor that is currently Ocarina interacting with the player (Malon, Guru-Guru, Skullkids, Ocarina_Tag...)
     /* 0x06AC */ s8 idleType;
     /* 0x06AD */ u8 unk_6AD;    // Camera related. 0 = normal, 1 = first person without weapon, 2 = first person with weapon, 3 = cutscene action, 4 = cutscene items
     /* 0x06AE */ u16 unk_6AE_rotFlags; // See `UNK6AE_ROT_` macros. If its flag isn't set, a rot steps to 0.
@@ -918,6 +918,10 @@ typedef struct Player {
         s8 isLakeHyliaCs; // Player_Action_BlueWarpArrive: In Lake Hylia CS after Water Temple. Floating down is delayed until a specific point in the cutscene.
         s8 bottleCatchType; // Player_Action_SwingBottle: entry type for `sBottleCatchInfo`, corresponds to actor caught in a bottle
         s8 hasBottledFairy; // Player_DeathRevival, Player_Action_Death (Ground/Water): Player has died with a bottled fairy that will revive the player
+        s8 isCrouchStabbing; // Player_Action_ShieldCrouch: Player is currently crouch stabbing
+        s8 crouchShielding; // Player_Action_ShieldBlock: Player is currently crouching and shielding (not standing up i.e. not target/parallel)
+        s8 iceScale; // Player_Action_Frozen: Used to scale the drawn ice encasing when growing.
+        s8 castedSpell; // Player_Action_CastMagicSpell: Magic spell that is being casted.
     } av1; // "Action Variable 1": context dependent variable that has different meanings depending on what action is currently running
 
     /* 0x0850 */ union {
@@ -932,6 +936,12 @@ typedef struct Player {
         s16 playedLandingSfx; // Player_Action_BlueWarpArrive: Played sfx when landing on the ground
         s16 appearTimer; // Player_Action_FaroresWindArrive: Counts up, appear at 20 frames (1 second)
         s16 fairyReviveTimer; // Player_DeathRevival: Timer for bottled fairy revival sequence (60 frames)
+        s16 ocarinaAnimFinished; // Player_Action_PlayOcarina: Animation for taking out Ocarina has finished
+        s16 dismountDown; // Player_Action_DismountLadder: True if player is dismounting the ladder downwards
+        s16 breakFreePoints; // Player_TryBreakingFree: Accumulated breaking free "points" while being grabbed by Redead etc.
+        s16 plantBeanTimer; // Player_Action_PlantMagicBean: Timer for planting bean sequence (80 frames)
+        s16 startShieldFinish; // Player_Action_ShieldCrouch: Starting shield animation has finished
+        s16 castPhase; // Player_Action_CastMagicSpell: Current phase of the spell cast action.
     } av2; // "Action Variable 2": context dependent variable that has different meanings depending on what action is currently running
 
     /* 0x0854 */ f32 unk_854;

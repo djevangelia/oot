@@ -4793,7 +4793,7 @@ void BossTw_UpdateEffects(PlayState* play) {
                     if (eff->workf[EFF_SCALE] == 0.0f) {
                         eff->type = TWEFF_NONE;
                         if (eff->target == NULL) {
-                            player->stateFlags2 &= ~PLAYER_STATE2_15;
+                            player->stateFlags2 &= ~PLAYER_STATE2_TWINROVA_FREEZE;
                             sFreezeState = 0;
                         }
                     }
@@ -4809,9 +4809,9 @@ void BossTw_UpdateEffects(PlayState* play) {
 
                         if (eff->workf[EFF_ROLL] >= 0.8f) {
                             eff->workf[EFF_ROLL] -= 0.8f;
-                            player->stateFlags2 |= PLAYER_STATE2_15;
+                            player->stateFlags2 |= PLAYER_STATE2_TWINROVA_FREEZE;
                         } else {
-                            player->stateFlags2 &= ~PLAYER_STATE2_15;
+                            player->stateFlags2 &= ~PLAYER_STATE2_TWINROVA_FREEZE;
                         }
 
                         if ((sKotakePtr->workf[UNK_F11] > 10.0f) && (sKotakePtr->workf[UNK_F11] < 200.0f)) {

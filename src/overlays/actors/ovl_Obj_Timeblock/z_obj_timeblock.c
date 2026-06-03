@@ -187,11 +187,11 @@ s32 ObjTimeblock_WaitForOcarina(ObjTimeblock* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
 
     if (ObjTimeblock_PlayerIsInRange(this, play)) {
-        if (player->stateFlags2 & PLAYER_STATE2_24) {
+        if (player->stateFlags2 & PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR) {
             Message_StartOcarina(play, OCARINA_ACTION_FREE_PLAY);
             this->songObserverFunc = ObjTimeblock_WaitForSong;
         } else {
-            player->stateFlags2 |= PLAYER_STATE2_23;
+            player->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
         }
     }
     return false;

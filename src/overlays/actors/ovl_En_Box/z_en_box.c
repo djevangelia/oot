@@ -315,8 +315,8 @@ void EnBox_AppearOnCorrectSong(EnBox* this, PlayState* play) {
         this->ocarinaState = ENBOX_OCARINA_STATE_IDLE;
     } else {
         if (this->ocarinaState == ENBOX_OCARINA_STATE_IDLE) {
-            if (!(player->stateFlags2 & PLAYER_STATE2_24)) {
-                player->stateFlags2 |= PLAYER_STATE2_23;
+            if (!(player->stateFlags2 & PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR)) {
+                player->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
                 return;
             }
             this->ocarinaState = ENBOX_OCARINA_STATE_START;

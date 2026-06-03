@@ -163,8 +163,8 @@ void func_80A4E470(EnGs* this, PlayState* play) {
 #endif
 
         if (this->unk_19D == 0) {
-            player->stateFlags2 |= PLAYER_STATE2_23;
-            if (player->stateFlags2 & PLAYER_STATE2_24) {
+            player->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
+            if (player->stateFlags2 & PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR) {
                 Message_StartOcarina(play, OCARINA_ACTION_FREE_PLAY);
                 this->unk_19D |= 1;
             }
@@ -185,7 +185,7 @@ void func_80A4E470(EnGs* this, PlayState* play) {
                 this->unk_19D = 0;
                 Flags_SetSwitch(play, PARAMS_GET_U(this->actor.params, 8, 6));
             } else if (play->msgCtx.ocarinaMode == OCARINA_MODE_01) {
-                player->stateFlags2 |= PLAYER_STATE2_23;
+                player->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
             }
         }
     }

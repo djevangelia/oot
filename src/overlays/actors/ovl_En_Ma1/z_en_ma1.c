@@ -358,22 +358,22 @@ void EnMa1_IdleTeachSong(EnMa1* this, PlayState* play) {
     }
 
     if (GET_EVENTCHKINF(EVENTCHKINF_CAN_LEARN_EPONAS_SONG)) {
-        if (player->stateFlags2 & PLAYER_STATE2_24) {
+        if (player->stateFlags2 & PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR) {
             player->stateFlags2 |= PLAYER_STATE2_25;
-            player->unk_6A8 = &this->actor;
+            player->ocarinaTalkActor = &this->actor;
             this->actor.textId = 0x2061;
             Message_StartTextbox(play, this->actor.textId, NULL);
             this->interactInfo.talkState = NPC_TALK_STATE_TALKING;
             this->actor.flags |= ACTOR_FLAG_TALK_OFFER_AUTO_ACCEPTED;
             this->actionFunc = EnMa1_StartTeachSong;
         } else if (this->actor.xzDistToPlayer < 30.0f + this->collider.dim.radius) {
-            player->stateFlags2 |= PLAYER_STATE2_23;
+            player->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
         }
     }
 }
 
 void EnMa1_StartTeachSong(EnMa1* this, PlayState* play) {
-    GET_PLAYER(play)->stateFlags2 |= PLAYER_STATE2_23;
+    GET_PLAYER(play)->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
     if (this->interactInfo.talkState == NPC_TALK_STATE_ACTION) {
         AudioOcarina_SetInstrument(OCARINA_INSTRUMENT_MALON);
         Message_StartOcarina(play, OCARINA_ACTION_TEACH_EPONA);
@@ -383,7 +383,7 @@ void EnMa1_StartTeachSong(EnMa1* this, PlayState* play) {
 }
 
 void EnMa1_TeachSong(EnMa1* this, PlayState* play) {
-    GET_PLAYER(play)->stateFlags2 |= PLAYER_STATE2_23;
+    GET_PLAYER(play)->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
     if (Message_GetState(&play->msgCtx) == TEXT_STATE_SONG_DEMO_DONE) {
         Message_StartOcarina(play, OCARINA_ACTION_PLAYBACK_EPONA);
         this->actionFunc = EnMa1_WaitForPlayback;
@@ -391,7 +391,7 @@ void EnMa1_TeachSong(EnMa1* this, PlayState* play) {
 }
 
 void EnMa1_WaitForPlayback(EnMa1* this, PlayState* play) {
-    GET_PLAYER(play)->stateFlags2 |= PLAYER_STATE2_23;
+    GET_PLAYER(play)->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
     if (play->msgCtx.ocarinaMode == OCARINA_MODE_03) {
         play->nextEntranceIndex = ENTR_LON_LON_RANCH_0;
         gSaveContext.nextCutsceneIndex = CS_INDEX_1;

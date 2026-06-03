@@ -1901,21 +1901,21 @@ void Player_ResetStatesHeldActor(PlayState* play, Player* this) {
 
 /**
  * When caught by Moblin, Redead etc.
- * @param baseValue Increase actionVar2 by at least this every frame, together with inputs
- * @param goalValue When actionVar2 is higher, Player breaks free
+ * @param baseValue Increase breakFreePoints by at least this every frame, together with inputs
+ * @param goalValue When breakFreePoints is higher, Player breaks free
  * @return true if Player breaks free
  */
 s32 Player_TryBreakingFree(Player* this, s32 baseValue, s32 freeValue) {
     s16 controlStickAngleDiff = this->prevControlStickAngle - sControlStickAngle;
 
-    this->av2.actionVar2 +=
+    this->av2.breakFreePoints +=
         baseValue + (s16)(ABS(controlStickAngleDiff) * fabsf(sControlStickMagnitude) * 2.5415802156203426e-06f);
 
     if (CHECK_BTN_ANY(sControlInput->press.button, BTN_A | BTN_B)) {
-        this->av2.actionVar2 += 5;
+        this->av2.breakFreePoints += 5;
     }
 
-    return this->av2.actionVar2 > freeValue;
+    return this->av2.breakFreePoints > freeValue;
 }
 
 void Player_SetFreezeFlashTimer(PlayState* play) {
@@ -3869,7 +3869,7 @@ s32 Player_SetupAction(PlayState* play, Player* this, PlayerActionFunc actionFun
 
     if (Player_Action_PlayOcarina == this->actionFunc) {
         AudioOcarina_SetInstrument(OCARINA_INSTRUMENT_OFF);
-        this->stateFlags2 &= ~(PLAYER_STATE2_24 | PLAYER_STATE2_25);
+        this->stateFlags2 &= ~(PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR | PLAYER_STATE2_25);
     } else if (Player_Action_CastMagicSpell == this->actionFunc) {
         Player_EndOnePointCutscene(play, this);
     }
@@ -5137,7 +5137,7 @@ static LinkAnimationHeader* sLinkDamageAnim[] = {
 };
 
 /**
- * Handle taking damage and the hit response to whatever caused it.
+ * Handle taking damage and the hit response to type of damage (frozen, knockback, etc).
  */
 void Player_HandleDamageHitResponse(PlayState* play, Player* this, s32 hitResponseType, f32 speed, f32 yVelocity, s16 yRot,
                    s32 invincibilityTimer) {
@@ -5155,8 +5155,8 @@ void Player_HandleDamageHitResponse(PlayState* play, Player* this, s32 hitRespon
     // Inflict damage - if player died and not on ground/in water, set not on ground action
     //! @bug This does not reset states that should be removed upon death, such as
     //! meleeWeaponState, nor actually set the player in a death state.
-    //! If player takes fatal damage but is healed the same frame, gameplay continues but
-    //! now in not on ground action. This causes jumpslash ISG.
+    //! If player takes fatal damage but is healed before reaching ground/water, gameplay
+    //! continues but now in not on ground action. This causes jumpslash ISG.
     if (!Player_ChangeHealth(play, this, 0 - this->actor.colChkInfo.damage)) {
         this->stateFlags2 &= ~PLAYER_STATE2_GRABBED;
         if (!(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) && !(this->stateFlags1 & PLAYER_STATE1_IN_WATER)) {
@@ -5308,14 +5308,14 @@ s32 Player_IsDamageFloor(s32 floorType) {
 }
 
 /**
- * @return 1 if floor type is any of 4, 7 or 12
+ * @return true if floor type is any of 4, 7 or 12
  */
 int Player_IsFloorSand(s32 floorType) {
     return (floorType == FLOOR_TYPE_4) || (floorType == FLOOR_TYPE_7) || (floorType == FLOOR_TYPE_12);
 }
 
 /**
- * Spawns a Deku Shield with params to burn it, deletes the player's Deku Shield,
+ * Spawns a Deku Shield with params 1 to burn it, deletes the player's Deku Shield,
  * and tells them it burned.
  */
 void Player_BurnDekuShield(Player* this, PlayState* play) {
@@ -5510,7 +5510,7 @@ s32 func_808382DC(Player* this, PlayState* play) {
 
                 Player_HandleDamageHitResponse(play, this, hitResponseType, 4.0f, 5.0f, Actor_WorldYawTowardActor(ac, &this->actor), 20);
             } else if (this->invincibilityTimer != 0) {
-                return 0;
+                return false;
             } else { // Floor and wall damage
                 static u8 sFloorDamageTimer[] = { 120, 60 };
                 s32 damageFloorType = Player_IsDamageFloor(sFloorType);
@@ -5525,13 +5525,13 @@ s32 func_808382DC(Player* this, PlayState* play) {
                     this->actor.colChkInfo.damage = 4;
                     Player_HandleDamageHitResponse(play, this, PLAYER_HIT_RESPONSE_NONE, 4.0f, 5.0f, this->actor.shape.rot.y, 20);
                 } else {
-                    return 0;
+                    return false;
                 }
             }
         }
     }
 
-    return 1;
+    return true;
 }
 
 /**
@@ -5564,7 +5564,7 @@ void Player_SetupNotOnGroundWithState2(Player* this, LinkAnimationHeader* anim, 
 
 /**
  * Jump to ledges and climb/hang, as well as jumping over small obstacles
- * @return 1 if jump up to ledge or jump over small obstacle
+ * @return true if jump up to ledge or jump over small obstacle
  */
 s32 Player_ActionHandler_Ledges(Player* this, PlayState* play) {
     s32 climb;
@@ -5580,21 +5580,21 @@ s32 Player_ActionHandler_Ledges(Player* this, PlayState* play) {
             if (this->actor.depthInWater < 50.0f) {
                 if ((this->ledgeClimbType < PLAYER_LEDGE_CLIMB_MEDIUM) ||
                     (this->yDistToLedge > this->ageProperties->unk_10)) {
-                    return 0;
+                    return false;
                 }
             } else if ((this->currentBoots != PLAYER_BOOTS_IRON) || (this->ledgeClimbType > PLAYER_LEDGE_CLIMB_MEDIUM)) {
-                return 0;
+                return false;
             }
         // Cannot grab in the air, or too high ledges if in water
         } else if (!(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
                    ((this->ageProperties->hangLedgeHeight <= this->yDistToLedge) && (this->stateFlags1 & PLAYER_STATE1_IN_WATER))) {
-            return 0;
+            return false;
         }
 
         // Climbing grabbable objects such as blocks requires pressing A
         if ((this->actor.wallBgId != BGCHECK_SCENE) && (sTouchedWallFlags & WALL_FLAG_GRABBABLE)) {
             if (this->ledgeClimbDelayTimer >= 6) {
-                this->stateFlags2 |= PLAYER_STATE2_2;
+                this->stateFlags2 |= PLAYER_STATE2_CAN_CLIMB_GRABBABLE;
                 if (CHECK_BTN_ALL(sControlInput->press.button, BTN_A)) {
                     climb = 1;
                 }
@@ -5650,7 +5650,7 @@ s32 Player_ActionHandler_Ledges(Player* this, PlayState* play) {
 
             this->actor.shape.rot.y = this->yaw = this->actor.wallYaw + 0x8000;
 
-            return 1;
+            return true;
         }
     // Or, quickly jump over small obstacles
     } else if ((this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) && (this->ledgeClimbType == PLAYER_LEDGE_CLIMB_SMALL) &&
@@ -5659,10 +5659,10 @@ s32 Player_ActionHandler_Ledges(Player* this, PlayState* play) {
         Player_SetupNotOnGroundWithState2(this, &gPlayerAnim_link_normal_jump, temp, play);
         this->speedXZ = 2.5f;
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -5709,10 +5709,10 @@ s32 Player_ShouldEnterGrotto(PlayState* play, Player* this) {
         Player_AnimPlayLoop(play, this, &gPlayerAnim_link_normal_landing_wait);
         Player_PlayVoiceSfx(this, NA_SE_VO_LI_FALL_S);
         Sfx_PlaySfxCentered2(NA_SE_OC_SECRET_WARP_IN);
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -5785,7 +5785,7 @@ s32 Player_HandleExitsAndVoids(PlayState* play, Player* this, CollisionPoly* flo
             // Don't start transition too early or if fall height too low, if falling into a transition
             if (!(this->stateFlags1 & (PLAYER_STATE1_RIDING | PLAYER_STATE1_IN_WATER | PLAYER_STATE1_CUTSCENE)) &&
                 !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) && (fallenDistance < 100) && (sYDistToFloor > 100.0f)) {
-                return 0;
+                return false;
             }
 
             if (exitIndex == 0) {
@@ -5865,7 +5865,7 @@ s32 Player_HandleExitsAndVoids(PlayState* play, Player* this, CollisionPoly* flo
 
             Player_RequestCameraSetting(play, CAM_SET_SCENE_TRANSITION);
 
-            return 1;
+            return true;
         } else {
             // Voidouts
             if (play->transitionTrigger == TRANS_TRIGGER_OFF) {
@@ -5901,7 +5901,7 @@ s32 Player_HandleExitsAndVoids(PlayState* play, Player* this, CollisionPoly* flo
         }
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -5920,6 +5920,7 @@ void Player_GetRelativePosition(Player* this, Vec3f* base, Vec3f* offset, Vec3f*
 
 /**
  * Spawns a Fairy on a position that is offset relative to a base position
+ * @return Actor* to spawned fairy
  */
 Actor* Player_SpawnFairy(PlayState* play, Player* this, Vec3f* basepos, Vec3f* offset, s32 type) {
     Vec3f pos;
@@ -6146,11 +6147,11 @@ s32 Player_ActionHandler_Doors(Player* this, PlayState* play) {
                 attachedActor->room = play->roomCtx.curRoom.num;
             }
 
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -6387,7 +6388,7 @@ void Player_SetupHanging(PlayState* play, Player* this, CollisionPoly* arg2, f32
 
 /**
  * Check if player can grab the ledge when walking outside of a floor edge.
- * @return 1 if grab
+ * @return true if grab
  */
 s32 Player_GrabLedgeFromAbove(Player* this, PlayState* play) {
     //! @bug `floorPitch` and `floorPitchAlt` are cleared to 0 before this function is called, because the player
@@ -6454,11 +6455,11 @@ s32 Player_GrabLedgeFromAbove(Player* this, PlayState* play) {
 
             Player_PlaySfx(this, NA_SE_PL_SLIPDOWN);
             Player_PlayVoiceSfx(this, NA_SE_VO_LI_HANG);
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 void Player_SetupClimbUp(Player* this, LinkAnimationHeader* anim, PlayState* play) {
@@ -6583,7 +6584,7 @@ s32 Player_SetFirstPersonCamera(PlayState* play, Player* this) {
 /**
  * If appropriate, setup action for performing a `csAction`
  *
- * @return  true if a `csAction` is started, false if not
+ * @return true if a `csAction` is started, false if not
  */
 s32 Player_StartCsAction(PlayState* play, Player* this) {
     // unk_6AD will get set to 3 in `Player_UpdateCommon` if `this->csAction` is non-zero
@@ -6626,7 +6627,7 @@ void Player_ObjectDMARequest(Player* this, s16 objectId) {
 void Player_SetupCastMagicSpell(PlayState* play, Player* this, s32 magicSpell) {
     Player_SetupActionPreserveItemAction(play, this, Player_Action_CastMagicSpell, 0);
 
-    this->av1.actionVar1 = magicSpell - 3; // AV1 0 = Farore, 1 = Nayru, 2 = Din
+    this->av1.castedSpell = magicSpell - 3; // AV1 0 = Farore, 1 = Nayru, 2 = Din
 
     //! @bug `MAGIC_CONSUME_WAIT_PREVIEW` is not guaranteed to succeed.
     //! Ideally, the return value of `Magic_RequestChange` should be checked before allowing the process of
@@ -6646,7 +6647,10 @@ void Player_SetupCastMagicSpell(PlayState* play, Player* this, s32 magicSpell) {
     }
 }
 
-void func_8083B010(Player* this) {
+/**
+ * Set head + upper limb + focus XZ rotation to zero. Set focus Y rotation to shape rotation Y.
+ */
+void Player_ZeroHeadUpperRotationSetFocusY(Player* this) {
     this->actor.focus.rot.x = this->actor.focus.rot.z = this->headLimbRot.x = this->headLimbRot.y =
         this->headLimbRot.z = this->upperLimbRot.x = this->upperLimbRot.y = this->upperLimbRot.z = 0;
 
@@ -6703,9 +6707,8 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
     //! @bug If player is not on ground (or swimming/riding), ANIM_FLAG_OVERRIDE_MOVEMENT is set,
     //! and player cannot move within the action, this will never be entered. If this handler was
     //! called by Player_TryActionInterrupt (through Player_ActionHandler_0), the trying ends here
-    //! with an action interrupt as Player_ActionHandler_0 returns 1 as soon as this handler finishes.
+    //! with an action interrupt as Player_ActionHandler_0 returns true as soon as this handler finishes.
     //! This is part of ladder dismount cutscene softlock.
-    //! @see csAction part of Player_UpdateCommon, and Player_Action_DismountLadder for fix
     if ((this->unk_6AD != 0) &&
         (Player_SwimmingWithoutIronBoots(this) || (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
          (this->stateFlags1 & PLAYER_STATE1_RIDING))) {
@@ -6768,7 +6771,7 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
                                 Inventory_ChangeAmmo(ITEM_MAGIC_BEAN, -1);
                                 Player_SetupActionPreserveItemAction(play, this, Player_Action_PlantMagicBean, 0);
                                 this->stateFlags1 |= PLAYER_STATE1_CUTSCENE;
-                                this->av2.actionVar2 = 80; // timer
+                                this->av2.plantBeanTimer = 80; // timer
                                 this->av1.actionVar1 = -1;
                             }
                             talkActor->flags |= ACTOR_FLAG_TALK;
@@ -6821,10 +6824,10 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
                     Player_SetupActionPreserveItemAction(play, this, Player_Action_PlayOcarina, 0);
                     Player_AnimPlayOnceAdjusted(play, this, &gPlayerAnim_link_normal_okarina_start);
                     this->stateFlags2 |= PLAYER_STATE2_USING_OCARINA;
-                    Player_SetTurnAroundCamera(play, (this->unk_6A8 != NULL) ? CAM_ITEM_TYPE_91 : CAM_ITEM_TYPE_90);
-                    if (this->unk_6A8 != NULL) {
+                    Player_SetTurnAroundCamera(play, (this->ocarinaTalkActor != NULL) ? CAM_ITEM_TYPE_91 : CAM_ITEM_TYPE_90);
+                    if (this->ocarinaTalkActor != NULL) {
                         this->stateFlags2 |= PLAYER_STATE2_25;
-                        Camera_SetViewParam(Play_GetCamera(play, CAM_ID_MAIN), CAM_VIEW_TARGET, this->unk_6A8);
+                        Camera_SetViewParam(Play_GetCamera(play, CAM_ID_MAIN), CAM_VIEW_TARGET, this->ocarinaTalkActor);
                     }
                 }
                 // If unk_6AD is set to 1 or 2 this action handler will run, and here
@@ -6833,7 +6836,7 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
                 if (!(this->stateFlags1 & PLAYER_STATE1_RIDING)) {
                     Player_SetupAction(play, this, Player_Action_InFirstPerson, 1);
                     this->av2.actionVar2 = 13;
-                    func_8083B010(this);
+                    Player_ZeroHeadUpperRotationSetFocusY(this);
                 }
                 this->stateFlags1 |= PLAYER_STATE1_FIRST_PERSON;
                 Sfx_PlaySfxCentered(NA_SE_SY_CAMERA_ZOOM_UP);
@@ -6963,7 +6966,7 @@ dont_talk:
 /**
  * Set unk_6AD to 1 "first person without weapon". This will be handled by Player_ActionHandler_13
  * later to set first person camera, state flag etc.
- * @return 1 if able to enter first person, else 0
+ * @return true if able to enter first person, else false
  */
 s32 Player_SetFirstPersonUnarmed(Player* this, PlayState* play) {
     if (!(this->stateFlags1 & (PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_RIDING)) &&
@@ -6972,17 +6975,17 @@ s32 Player_SetFirstPersonUnarmed(Player* this, PlayState* play) {
             (Player_SwimmingWithoutIronBoots(this) &&
              (this->actor.depthInWater < this->ageProperties->startSwimDepth))) {
             this->unk_6AD = 1;
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 s32 Player_ActionHandler_0(Player* this, PlayState* play) {
     if (this->unk_6AD != 0) {
         Player_ActionHandler_13(this, play);
-        return 1;
+        return true;
     }
 
     if ((this->focusActor != NULL) &&
@@ -6997,7 +7000,7 @@ s32 Player_ActionHandler_0(Player* this, PlayState* play) {
         Sfx_PlaySfxCentered(NA_SE_SY_ERROR);
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -7022,17 +7025,17 @@ void Player_SetupJumpslash(PlayState* play, Player* this, s32 meleeWeaponAnimati
 
 /**
  * Uses a melee weapon already in hand if not shielding.
- * @return 1 if use weapon is successful
+ * @return true if use weapon is successful
  */
 s32 Player_UseMeleeWeapon(Player* this) {
     if (!(this->stateFlags1 & PLAYER_STATE1_SHIELDING) && (Player_GetMeleeWeaponHeld(this) != 0)) {
         if (sUseHeldItem ||
             ((this->actor.category != ACTORCAT_PLAYER) && CHECK_BTN_ALL(sControlInput->press.button, BTN_B))) {
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -7091,6 +7094,7 @@ void Player_SidehopBackflip(Player* this, PlayState* play, s32 controlStickDirec
 
 /**
  * Jumpslash, roll, sidehops/backflips
+ * @return true if did a movement action: jumpslash, roll, sidehop/backflip
  */
 s32 Player_ActionHandler_10(Player* this, PlayState* play) {
     s32 controlStickDirection;
@@ -7102,17 +7106,15 @@ s32 Player_ActionHandler_10(Player* this, PlayState* play) {
 
         if (controlStickDirection <= PLAYER_STICK_DIR_FORWARD) {
             if (Player_IsZTargeting(this)) {
-                // Dark Link
-                if (this->actor.category != ACTORCAT_PLAYER) {
+                if (this->actor.category != ACTORCAT_PLAYER) { // Dark Link
                     if (controlStickDirection <= PLAYER_STICK_DIR_NONE) {
                         // Dark Link does not get here, because he would then jumpslash from air.
-                        // If spawned in an area with ledges, he might jump.
+                        // If spawned in an area with ledges, he may jump.
                         Player_SetupNotOnGroundWithState2(this, &gPlayerAnim_link_normal_jump, R_DARK_LINK_JUMP / 100.0f, play);
                     } else {
                         Player_SetupRoll(this, play);
                     }
-                // Try jumpslash if stick forward and Z-targeting
-                } else {
+                } else { // Try jumpslash if stick forward and Z-targeting
                     if ((Player_GetMeleeWeaponHeld(this) != 0) && Player_CanUpdateItems(this)) {
                         Player_SetupJumpslash(play, this, PLAYER_MWA_JUMPSLASH_START, 5.0f, 5.0f);
                     } else {
@@ -7120,16 +7122,16 @@ s32 Player_ActionHandler_10(Player* this, PlayState* play) {
                     }
                 }
 
-                return 1;
+                return true;
             }
         } else {
             Player_SidehopBackflip(this, play, controlStickDirection);
 
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 void Player_PlayStopRunWalkAnim(Player* this, PlayState* play) {
@@ -7184,7 +7186,7 @@ void Player_SetupIdlePlayOnce(Player* this, PlayState* play) {
  */
 void Player_ExitCutsceneFirstPerson(Player* this, PlayState* play) {
     if (!(this->stateFlags3 & PLAYER_STATE3_FLYING_WITH_HOOKSHOT)) {
-        func_8083B010(this);
+        Player_ZeroHeadUpperRotationSetFocusY(this);
         if (this->stateFlags1 & PLAYER_STATE1_IN_WATER) {
             Player_SetupSwimIdle(play, this);
         } else {
@@ -7227,7 +7229,7 @@ s32 Player_ActionHandler_Roll(Player* this, PlayState* play) {
 /**
  * Handler for starting shielding without Z-targeting/not in parallel.
  * Also handles child Link shielding with Hylian Shield.
- * @return 1 if starting shielding
+ * @return true if starting shielding
  */
 s32 Player_ActionHandler_CrouchShield(Player* this, PlayState* play) {
     LinkAnimationHeader* anim;
@@ -7275,14 +7277,14 @@ s32 Player_ActionHandler_CrouchShield(Player* this, PlayState* play) {
             Player_PlaySfx(this, NA_SE_IT_SHIELD_POSTURE);
         }
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 /**
- * @return 1 if absolute yaw difference > 0x6000 and player doesn't decelerate to zero speed
+ * @return true if absolute yaw difference > 0x6000 and player doesn't decelerate to zero speed
  */
 s32 func_8083C484(Player* this, f32* speedTarget, s16* yawTarget) {
     s16 yawDiff = this->yaw - *yawTarget;
@@ -7292,11 +7294,11 @@ s32 func_8083C484(Player* this, f32* speedTarget, s16* yawTarget) {
             *speedTarget = 0.0f;
             *yawTarget = this->yaw;
         } else {
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -7312,7 +7314,7 @@ void Player_CheckHoldingSpinB(Player* this) {
 /**
  * Check if player is holding B, spinAttackStartTimer is 1, and other requirements to
  * start charging a spin attack.
- * @return 1 if a spin attack was started, otherwise 0
+ * @return true if a spin attack charge was started, otherwise false
  */
 s32 Player_ActionHandler_ChargeSpinAttack(Player* this, PlayState* play) {
     if (CHECK_BTN_ALL(sControlInput->cur.button, BTN_B)) {
@@ -7321,19 +7323,19 @@ s32 Player_ActionHandler_ChargeSpinAttack(Player* this, PlayState* play) {
             if ((this->heldItemAction != PLAYER_IA_SWORD_BIGGORON) ||
                 (gSaveContext.save.info.playerData.swordHealth > 0.0f)) {
                 Player_SetupChargeSpinAttack(play, this);
-                return 1;
+                return true;
             }
         }
     } else {
         Player_CheckHoldingSpinB(this);
     }
 
-    return 0;
+    return false;
 }
 
 /**
  * Setup Deku Nut throw action and start animation.
- * @return 1 if action successfully set
+ * @return true if action successfully set
  */
 s32 Player_SetupThrowDekuNut(PlayState* play, Player* this) {
     if ((play->roomCtx.curRoom.type != ROOM_TYPE_INDOORS) && (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) &&
@@ -7341,10 +7343,10 @@ s32 Player_SetupThrowDekuNut(PlayState* play, Player* this) {
         Player_SetupAction(play, this, Player_Action_ThrowDekuNut, 0);
         Player_AnimPlayOnce(play, this, &gPlayerAnim_link_normal_light_bom);
         this->unk_6AD = 0;
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 typedef struct BottleSwingInfo {
@@ -7448,7 +7450,7 @@ void Player_SetupRunWithYawTarget(Player* this, PlayState* play, s16 yawTarget) 
 }
 
 /**
- * @return 0 if player starting movement is swimming, otherwise 1
+ * @return false if player starting movement is swimming, otherwise true
  */
 s32 Player_SetStartingMovement(PlayState* play, Player* this, f32 arg2) {
     WaterBox* waterbox;
@@ -7465,13 +7467,13 @@ s32 Player_SetStartingMovement(PlayState* play, Player* this, f32 arg2) {
             this->av2.actionVar2 = 20;
             this->speedXZ = 2.0f;
             Player_SetBootData(play, this);
-            return 0;
+            return false;
         }
     }
 
     Player_SetupSceneSlidingTransition(play, this, arg2, this->actor.shape.rot.y);
     this->stateFlags1 |= PLAYER_STATE1_CUTSCENE;
-    return 1;
+    return true;
 }
 
 void Player_StartMode_Idle(PlayState* play, Player* this) {
@@ -7544,7 +7546,7 @@ void Player_SetupTurnInPlace(PlayState* play, Player* this, s16 yaw) {
     Player_SetupAction(play, this, Player_Action_TurnInPlace, 1);
 
     this->turnRate = 1200;
-    this->turnRate *= sWaterSpeedFactor; // slow turn rate by half when in water
+    this->turnRate *= sWaterSpeedFactor; // Slow turn rate by half when in water
 
     LinkAnimation_Change(play, &this->skelAnime, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_45_turn, this->modelAnimType), 1.0f,
                          0.0f, 0.0f, ANIMMODE_LOOP, -6.0f);
@@ -7592,7 +7594,7 @@ void Player_SetupIdleOrRunDependingOnTargetWithAnim(Player* this, PlayState* pla
 
 /**
  * Spawn water splash
- * @return 1 if spawned, else 0
+ * @return true if spawned, else false
  */
 s32 Player_SpawnWaterSplash(PlayState* play, Player* this, f32 velocity, s32 splashScale) {
     f32 speed = fabsf(velocity);
@@ -7615,12 +7617,12 @@ s32 Player_SpawnWaterSplash(PlayState* play, Player* this, f32 velocity, s32 spl
                 splashType = (speed <= 10.0f) ? 0 : 1;
                 splashPos.y = playerY;
                 EffectSsGSplash_Spawn(play, &splashPos, NULL, NULL, splashType, splashScale);
-                return 1;
+                return true;
             }
         }
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -7639,8 +7641,8 @@ void Player_ExitWater(PlayState* play, Player* this, f32 velocity) {
 }
 
 /**
- * @param input controller input
- * @note, that no controller input on the frame still leads to non-NULL path, if passed as input
+ * @param input controller input pointer
+ * @note that no controller input on this frame still leads to non-NULL path if Input* is passed
  */
 s32 Player_DiveResurface(PlayState* play, Player* this, Input* input) {
     // Diving
@@ -7662,7 +7664,7 @@ s32 Player_DiveResurface(PlayState* play, Player* this, Input* input) {
                 Player_PlaySfx(this, NA_SE_PL_DIVE_BUBBLE);
             }
 
-            return 1;
+            return true;
         }
     }
 
@@ -7694,14 +7696,17 @@ s32 Player_DiveResurface(PlayState* play, Player* this, Input* input) {
                     Player_PlaySfx(this, NA_SE_PL_FACE_UP);
                 }
 
-                return 1;
+                return true;
             }
         }
     }
 
-    return 0;
+    return false;
 }
 
+/**
+ * Sets the diving loop animation.
+ */
 void Player_SetDiveAnim(PlayState* play, Player* this) {
     Player_AnimPlayLoop(play, this, &gPlayerAnim_link_swimer_swim);
     this->unk_6C2 = 16000;
@@ -7715,15 +7720,17 @@ void Player_EnterWater(PlayState* play, Player* this) {
     if ((this->currentBoots != PLAYER_BOOTS_IRON) || !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND)) {
         Player_ResetStatesHeldActor(play, this);
 
-        // This part is never run, because Player_EndOnePointCutscene called above unsets PLAYER_STATE2_DEEP_WATER
+        // This condition is never true, because Player_EndOnePointCutscene called in Player_ResetStatesHeldActor
+        // unsets PLAYER_STATE2_DEEP_WATER
         if ((this->currentBoots != PLAYER_BOOTS_IRON) && (this->stateFlags2 & PLAYER_STATE2_DEEP_WATER)) {
             this->stateFlags2 &= ~PLAYER_STATE2_DEEP_WATER;
             Player_DiveResurface(play, this, NULL);
             this->av1.actionVar1 = 1;
+        // Enter water through jumpdive
         } else if (Player_Action_Jumpdive == this->actionFunc) {
             Player_SetupAction(play, this, Player_Action_Diving, 0);
             Player_SetDiveAnim(play, this);
-        // = Entering water by anything but a jumpdive
+        // Enter water by anything but a jumpdive
         } else {
             Player_SetupAction(play, this, Player_Action_WaterIdle, 1);
             Player_AnimChangeOnceMorph(play, this,
@@ -7781,11 +7788,11 @@ void Player_WaterUpdate(PlayState* play, Player* this) {
                 Player_EnterWater(play, this);
                 return;
             }
-            // Exit water
+        // Exit water
         } else if ((this->stateFlags1 & PLAYER_STATE1_IN_WATER) &&
                    (this->actor.depthInWater < this->ageProperties->stopSwimDepth)) {
             if ((this->skelAnime.movementFlags == 0) && (this->currentBoots != PLAYER_BOOTS_IRON)) {
-                //! @bug Changing action to TurnInPlace when exiting water allows for WESS.
+                //! @bug That action changes to TurnInPlace when exiting water allows for WESS.
                 Player_SetupTurnInPlace(play, this, this->actor.shape.rot.y);
             }
             Player_ExitWater(play, this, this->actor.velocity.y);
@@ -7936,7 +7943,7 @@ void func_8083DC54(Player* this, PlayState* play) {
         return;
     }
 
-    // Causes Link to gaze upwards when leaving grotto (called by idle action)
+    // This causes Link to gaze upwards when leaving grotto (called by idle action)
     if (sFloorType == FLOOR_TYPE_11) {
         Math_SmoothStepToS(&this->actor.focus.rot.x, -20000, 10, 4000, 800);
     } else {
@@ -8311,10 +8318,10 @@ s32 Player_ActionHandler_DropThrow(Player* this, PlayState* play) {
                 Player_SetupThrowCarriedActor(this, play);
             }
         }
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 s32 func_8083EC18(Player* this, PlayState* play, u32 wallFlags) {
@@ -8549,12 +8556,12 @@ s32 func_8083F360(PlayState* play, Player* this, f32 arg1, f32 arg2, f32 arg3, f
         this->actor.world.pos.x = sp54.x - (Math_SinS(this->actor.shape.rot.y) * arg2);
         this->actor.world.pos.z = sp54.z - (Math_CosS(this->actor.shape.rot.y) * arg2);
 
-        return 1;
+        return true;
     }
 
     this->actor.bgCheckFlags &= ~BGCHECKFLAG_PLAYER_WALL_INTERACT;
 
-    return 0;
+    return false;
 }
 
 s32 func_8083F524(PlayState* play, Player* this) {
@@ -8646,7 +8653,7 @@ s32 Player_ActionHandler_CrawlspaceGrab(Player* this, PlayState* play) {
         // Standing next to an object that is grabbable lets player press A to grab onto it.
         // State is set even before actual grab.
         if (!Player_SwimmingWithoutIronBoots(this) &&
-            ((this->speedXZ == 0.0f) || !(this->stateFlags2 & PLAYER_STATE2_2)) && (sTouchedWallFlags & WALL_FLAG_GRABBABLE) &&
+            ((this->speedXZ == 0.0f) || !(this->stateFlags2 & PLAYER_STATE2_CAN_CLIMB_GRABBABLE)) && (sTouchedWallFlags & WALL_FLAG_GRABBABLE) &&
             (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) && (this->yDistToLedge >= 39.0f)) {
 
             this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD;
@@ -9877,10 +9884,10 @@ void Player_Action_8084251C(Player* this, PlayState* play) {
     }
 }
 
-void func_8084260C(Vec3f* src, Vec3f* dest, f32 arg2, f32 arg3, f32 arg4) {
-    dest->x = (Rand_ZeroOne() * arg3) + src->x;
-    dest->y = (Rand_ZeroOne() * arg4) + (src->y + arg2);
-    dest->z = (Rand_ZeroOne() * arg3) + src->z;
+void func_8084260C(Vec3f* footPos, Vec3f* dest, f32 yOffset, f32 coeffXZ, f32 coeffY) {
+    dest->x = (Rand_ZeroOne() * coeffXZ) + footPos->x;
+    dest->y = (Rand_ZeroOne() * coeffY) + (footPos->y + yOffset);
+    dest->z = (Rand_ZeroOne() * coeffXZ) + footPos->z;
 }
 
 static Vec3f sSandFootVelocity = { 0.0f, 0.0f, 0.0f };
@@ -9896,19 +9903,19 @@ s32 func_8084269C(PlayState* play, Player* this) {
         func_8084260C(&this->actor.shape.feetPos[FOOT_RIGHT], &pos,
                       this->actor.floorHeight - this->actor.shape.feetPos[FOOT_RIGHT].y, 7.0f, 5.0f);
         func_800286CC(play, &this->actor.shape.feetPos[FOOT_RIGHT], &sSandFootVelocity, &sSandFootAccel, 50, 30);
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 /**
- * Watch as Magic Bean gets planted, then idle.
+ * Watch as Magic Bean gets planted, then setup idle.
  */
 void Player_Action_PlantMagicBean(Player* this, PlayState* play) {
     Player_IfAnimDoneLoopThis(play, this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_check_wait, this->modelAnimType));
 
-    if (DECR(this->av2.actionVar2) == 0) { // starts at 80
+    if (DECR(this->av2.plantBeanTimer) == 0) { // Starts at 80
         if (!Player_ActionHandler_13(this, play)) {
             Player_PlayAnimAndSetupIdle(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_check_end, this->modelAnimType), play);
         }
@@ -10189,8 +10196,8 @@ void Player_Action_ShieldCrouch(Player* this, PlayState* play) {
         if (!Player_IsChildWithHylianShield(this)) {
             Player_AnimPlayLoop(play, this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_defense_wait, this->modelAnimType));
         }
-        this->av2.actionVar2 = 1; // Set flag for finishing shield equip
-        this->av1.actionVar1 = 0; // Remove flag for crouch stab attack
+        this->av2.startShieldFinish = true; // Set flag for finishing shield equip
+        this->av1.isCrouchStabbing = false; // Remove flag for crouch stab attack
     }
 
     // Shield state is unset in Player_UpdateCommon intraframe,
@@ -10204,8 +10211,8 @@ void Player_Action_ShieldCrouch(Player* this, PlayState* play) {
 
     Player_DecelerateToZero(this);
 
-    // If shield equip finished
-    if (this->av2.actionVar2 != 0) {
+    // If start shield animation finished
+    if (this->av2.startShieldFinish != false) {
         f32 sp54;
         f32 sp50;
         s16 sp4E;
@@ -10243,19 +10250,19 @@ void Player_Action_ShieldCrouch(Player* this, PlayState* play) {
         this->upperLimbRot.x = this->actor.focus.rot.x;
         Math_ScaledStepToS(&this->upperLimbRot.y, sp4A, sp46);
 
-        // If doing crouch stab. (av1.actionVar1 is set to 1 by Player_TryCrouchStab below)
-        if (this->av1.actionVar1 != 0) {
+        // If doing crouch stab. (av1.isCrouchStabbing is set to true by Player_TryCrouchStab below)
+        if (this->av1.isCrouchStabbing != false) {
             if (!Player_CheckMeleeInterrupt(play, this)) {
                 if (this->skelAnime.curFrame < 2.0f) {
                     // Set meleeWeaponState to 1 on first frame of crouch stab animation
                     Player_ActivateMeleeWeapon(this, 1);
                 }
             } else {
-                this->av2.actionVar2 = 1;
-                this->av1.actionVar1 = 0;
+                this->av2.startShieldFinish = true;
+                this->av1.isCrouchStabbing = false;
             }
             // If not in crouch stab, check three action handlers. New action?
-            //! @bug On the last crouch stab animation frame, av1.actionVar1 is set to 0 above
+            //! @bug On the last crouch stab animation frame, av1.isCrouchStabbing is set to 0 above
             //! (LinkAnimation_Update is true) but meleeWeaponState is still 1.
             //! The three action handlers will run. If a new action is set up on this frame that doesn't
             //! reset meleeWeaponState, meleeWeaponState will stay 1. This causes infinite sword glitch/ISG.
@@ -10317,8 +10324,8 @@ void Player_Action_ShieldBlock(Player* this, PlayState* play) {
 
     Player_DecelerateToZero(this);
 
-    // 0 = shielding with target/in parallel; set in func_808382DC
-    if (this->av1.actionVar1 == 0) {
+    // Shielding with target/in parallel (set in func_808382DC)
+    if (this->av1.crouchShielding == false) {
         sUpperBodyIsBusy = Player_UpdateUpperBody(this, play);
 
         if ((Player_UpperAction_StandShield == this->upperActionFunc) ||
@@ -12111,7 +12118,7 @@ void Player_UpdateInterface(PlayState* play, Player* this) {
                     }
                 } else if (!sp1C && (this->stateFlags2 & PLAYER_STATE2_GRAB_HOLD)) {
                     doAction = DO_ACTION_GRAB;
-                } else if ((this->stateFlags2 & PLAYER_STATE2_2) ||
+                } else if ((this->stateFlags2 & PLAYER_STATE2_CAN_CLIMB_GRABBABLE) ||
                            (!(this->stateFlags1 & PLAYER_STATE1_RIDING) && (this->rideActor != NULL))) {
                     doAction = DO_ACTION_CLIMB;
                 } else if ((this->stateFlags1 & PLAYER_STATE1_RIDING) && !EN_HORSE_CHECK_4((EnHorse*)this->rideActor) &&
@@ -12934,7 +12941,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
         this->stateFlags3 &= ~PLAYER_STATE3_RESTORE_NAYRUS_LOVE;
     }
 
-    if (this->stateFlags2 & PLAYER_STATE2_15) {
+    if (this->stateFlags2 & PLAYER_STATE2_TWINROVA_FREEZE) {
         if (!(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND)) {
             Player_ZeroSpeedXZ(this);
             Actor_MoveXZGravity(&this->actor);
@@ -13165,7 +13172,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
         this->stateFlags1 &= ~(PLAYER_STATE1_SWINGING_BOTTLE | PLAYER_STATE1_RANGED_WEAPON_LOADED |
                                PLAYER_STATE1_CHARGING_SPIN_ATTACK | PLAYER_STATE1_SHIELDING);
         this->stateFlags2 &=
-            ~(PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_2 | PLAYER_STATE2_MAKING_NOISE | PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT |
+            ~(PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_CAN_CLIMB_GRABBABLE | PLAYER_STATE2_MAKING_NOISE | PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT |
               PLAYER_STATE2_PUSH_PULL_CAMERA | PLAYER_STATE2_FORCE_SAND_FLOOR_SOUND | PLAYER_STATE2_CLIMB_STILL | PLAYER_STATE2_FROZEN |
               PLAYER_STATE2_DO_ACTION_ENTER | PLAYER_STATE2_CAN_HORSE_DISMOUNT | PLAYER_STATE2_DARK_LINK_ROOM_SHADOW);
         this->stateFlags3 &= ~PLAYER_STATE3_CHECK_GROUND_COLLISION;
@@ -13221,10 +13228,10 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
         this->naviTextId = 0;
 
         if (!(this->stateFlags2 & PLAYER_STATE2_25)) {
-            this->unk_6A8 = NULL;
+            this->ocarinaTalkActor = NULL;
         }
 
-        this->stateFlags2 &= ~PLAYER_STATE2_23;
+        this->stateFlags2 &= ~PLAYER_STATE2_OCARINA_INVITE;
         this->closestSecretDistSq = MAXFLOAT;
 
         temp_f0 = this->actor.world.pos.y - this->actor.prevPos.y;
@@ -13752,6 +13759,11 @@ void Player_Action_InFirstPerson(Player* this, PlayState* play) {
     this->yaw = this->actor.shape.rot.y;
 }
 
+/**
+ * Set up playing the Shooting Gallery: reset states, SetupAction,
+ * use correct ranged item, set first person, fix animation and speed.
+ * @return true if starting Shooting Gallery
+ */
 s32 Player_SetupShootingGallery(PlayState* play, Player* this) {
     if (play->shootingGalleryStatus != 0) {
         Player_ResetStatesHeldActor(play, this);
@@ -13765,13 +13777,17 @@ s32 Player_SetupShootingGallery(PlayState* play, Player* this) {
         this->stateFlags1 |= PLAYER_STATE1_FIRST_PERSON;
         Player_AnimPlayOnce(play, this, Player_GetIdleAnim(this));
         Player_ZeroSpeedXZ(this);
-        func_8083B010(this);
-        return 1;
+        Player_ZeroHeadUpperRotationSetFocusY(this);
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
+/**
+ * Sets player itemAction to correct Ocarina depending on Ocarina slot content.
+ * Used for games and cutscenes.
+ */
 void Player_GetOcarinaModel(Player* this) {
     this->itemAction =
         (INV_CONTENT(ITEM_OCARINA_FAIRY) == ITEM_OCARINA_FAIRY) ? PLAYER_IA_OCARINA_FAIRY : PLAYER_IA_OCARINA_OF_TIME;
@@ -13783,10 +13799,10 @@ s32 Player_StartOcarinaGame(PlayState* play, Player* this) {
         Player_GetOcarinaModel(this);
         this->unk_6AD = 4;
         Player_ActionHandler_13(this, play);
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 void Player_Action_Talk(Player* this, PlayState* play) {
@@ -13926,7 +13942,7 @@ void Player_Action_PushBlock(Player* this, PlayState* play) {
     }
 }
 
-static AnimSfxEntry blockPullSfx[] = {
+static AnimSfxEntry sBlockPullSfx[] = {
     { NA_SE_PL_SLIP, ANIMSFX_DATA(ANIMSFX_TYPE_FLOOR, 4) },
     { NA_SE_PL_SLIP, -ANIMSFX_DATA(ANIMSFX_TYPE_FLOOR, 24) },
 };
@@ -13950,7 +13966,7 @@ void Player_Action_PullBlock(Player* this, PlayState* play) {
             }
             if (!DEBUG_FEATURES) {}
         } else {
-            Player_ProcessAnimSfxList(this, blockPullSfx);
+            Player_ProcessAnimSfxList(this, sBlockPullSfx);
         }
     }
 
@@ -14248,7 +14264,7 @@ static AnimSfxEntry sDownDismountLadderAnimSfx[] = {
 
 /**
  * Dismounting ladders, both upwards and downwards.
- * actionVar2 = 1 if dismounting down
+ * actionVar2 (dismountDown) true if dismounting down
  */
 void Player_Action_DismountLadder(Player* this, PlayState* play) {
     s32 interruptResult;
@@ -14280,7 +14296,7 @@ void Player_Action_DismountLadder(Player* this, PlayState* play) {
 
     frame = sUpDismountLadderFrames;
 
-    if (this->av2.actionVar2 != 0) {
+    if (this->av2.dismountDown != false) {
         Player_ProcessAnimSfxList(this, sDownDismountLadderAnimSfx);
         frame = sDownDismountLadderFrames;
     }
@@ -14397,7 +14413,7 @@ int Player_CheckDismountHorseCollision(PlayState* play, Player* this, s32 mountS
 }
 
 /**
- * @return 1 if dismounting
+ * @return true if successfully starting dismounting
  */
 s32 Player_TryDismountHorse(Player* this, PlayState* play) {
     EnHorse* rideActor = (EnHorse*)this->rideActor;
@@ -14411,7 +14427,7 @@ s32 Player_TryDismountHorse(Player* this, PlayState* play) {
         if (!Player_CheckDismountHorseCollision(play, this, mountSide, &raycastY)) {
             mountSide ^= 1;
             if (!Player_CheckDismountHorseCollision(play, this, mountSide, &raycastY)) {
-                return 0;
+                return false; // Can't dismount on either side of horse
             } else {
                 this->mountSide = -this->mountSide;
             }
@@ -14429,12 +14445,12 @@ s32 Player_TryDismountHorse(Player* this, PlayState* play) {
                 Player_AnimPlayOnce(play, this,
                                     (this->mountSide < 0) ? &gPlayerAnim_link_uma_left_down
                                                           : &gPlayerAnim_link_uma_right_down);
-                return 1;
+                return true;
             }
         }
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -14756,12 +14772,12 @@ void Player_Action_WaterIdle(Player* this, PlayState* play) {
         f32 speedTarget;
         s16 yawTarget;
 
-        // Set camera flag, unless player is in first person without weapon
+        // Set camera flag zero, unless player is in first person without weapon
         if (this->unk_6AD != 1) {
             this->unk_6AD = 0;
         }
 
-        // If sinking with iron boots we cannot change speed or direction.
+        // If sinking with Iron Boots we cannot change speed or direction.
         // When landed play effects and switch action
         if (this->currentBoots == PLAYER_BOOTS_IRON) {
             speedTarget = 0.0f;
@@ -15121,24 +15137,28 @@ static s16 sWarpSongEntrances[] = {
 void Player_Action_PlayOcarina(Player* this, PlayState* play) {
     if (LinkAnimation_Update(play, &this->skelAnime)) {
         Player_AnimPlayLoopAdjusted(play, this, &gPlayerAnim_link_normal_okarina_swing);
-        this->av2.actionVar2 = 1;
-        if (this->stateFlags2 & (PLAYER_STATE2_23 | PLAYER_STATE2_25)) {
-            this->stateFlags2 |= PLAYER_STATE2_24;
+        this->av2.ocarinaAnimFinished = 1;
+        // Now either enter play for actor, or free play
+        if (this->stateFlags2 & (PLAYER_STATE2_OCARINA_INVITE | PLAYER_STATE2_25)) {
+            this->stateFlags2 |= PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR;
         } else {
             Message_StartOcarina(play, OCARINA_ACTION_FREE_PLAY);
         }
         return;
     }
 
-    if (this->av2.actionVar2 == 0) { // Don't continue past here until taking out Ocarina is finished
+    // Don't continue past here until taking out Ocarina is finished
+    if (this->av2.ocarinaAnimFinished == 0) {
         return;
     }
 
+    // Stop playing Ocarina
     if (play->msgCtx.ocarinaMode == OCARINA_MODE_04) {
         Camera_SetFinishedFlag(Play_GetCamera(play, CAM_ID_MAIN));
 
-        if ((this->talkActor != NULL) && (this->talkActor == this->unk_6A8)) {
+        if ((this->talkActor != NULL) && (this->talkActor == this->ocarinaTalkActor)) {
             Player_StartTalking(play, this->talkActor);
+        // Talk to Saria (textId -0xE0)
         } else if (this->naviTextId < 0) {
             this->talkActor = this->naviActor;
             this->naviActor->textId = -this->naviTextId;
@@ -15147,8 +15167,9 @@ void Player_Action_PlayOcarina(Player* this, PlayState* play) {
             Player_PlayAnimAndSetupIdle(this, &gPlayerAnim_link_normal_okarina_end, play);
         }
 
-        this->stateFlags2 &= ~(PLAYER_STATE2_23 | PLAYER_STATE2_24 | PLAYER_STATE2_25);
-        this->unk_6A8 = NULL;
+        this->stateFlags2 &= ~(PLAYER_STATE2_OCARINA_INVITE | PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR | PLAYER_STATE2_25);
+        this->ocarinaTalkActor = NULL;
+    // Warp song handling
     } else if (play->msgCtx.ocarinaMode == OCARINA_MODE_02) {
         s32 pad;
 
@@ -15168,6 +15189,7 @@ void Player_Action_PlayOcarina(Player* this, PlayState* play) {
         this->stateFlags1 |= PLAYER_STATE1_28 | PLAYER_STATE1_CUTSCENE;
         this->stateFlags2 |= PLAYER_STATE2_USING_OCARINA;
 
+        // Spawn warp actor and if successful, warp away
         if (Actor_Spawn(&play->actorCtx, play, ACTOR_DEMO_KANKYO, 0.0f, 0.0f, 0.0f, 0, 0, 0, DEMOKANKYO_WARP_OUT) ==
             NULL) {
             Environment_WarpSongLeave(play);
@@ -15808,15 +15830,21 @@ void Player_Action_ShootingGallery(Player* this, PlayState* play) {
     }
 }
 
+/**
+ * Frozen by Freezards, ice traps. (Twinrova freeze is entirely different condition.)
+ * Call try break free function, inflict damage, when free, setup idle.
+ * Drawing of ice encasing is done in the end of Player_Draw.
+ */
 void Player_Action_Frozen(Player* this, PlayState* play) {
-    if (this->av1.actionVar1 >= 0) {
-        if (this->av1.actionVar1 < 6) {
-            this->av1.actionVar1++;
+    if (this->av1.iceScale >= 0) {
+        // When getting frozen, stepwise scale up the ice encasing
+        if (this->av1.iceScale < 6) {
+            this->av1.iceScale++;
         }
 
         // Managed to break free
         if (Player_TryBreakingFree(this, 1, 100)) {
-            this->av1.actionVar1 = -1;
+            this->av1.iceScale = -1;
             EffectSsIcePiece_SpawnBurst(play, &this->actor.world.pos, this->actor.scale.x);
             Player_PlaySfx(this, NA_SE_PL_ICE_BROKEN);
         } else { // Still frozen
@@ -16011,7 +16039,7 @@ void Player_UpdateBunnyEars(Player* this) {
 /**
  * Try whether an item is being used and if it is bottle, fishing rod, or melee weapon.
  * Also starts quickspin.
- * @return 1 if using bottle, fishing rod, melee weapon, otherwise 0
+ * @return true if using bottle, fishing rod, melee weapon, otherwise false
  */
 s32 Player_ActionHandler_MeleeBottleFish(Player* this, PlayState* play) {
     if (Player_SetupBottleFishing(play, this) == 0) {
@@ -16024,14 +16052,14 @@ s32 Player_ActionHandler_MeleeBottleFish(Player* this, PlayState* play) {
             if (meleeWeaponAnimation >= PLAYER_MWA_SPIN_ATTACK_1H) {
                 this->stateFlags2 |= PLAYER_STATE2_RELEASE_SPIN_ATTACK;
                 Player_SpawnThunderActor(play, this, 0);
-                return 1;
+                return true;
             }
         } else {
-            return 0;
+            return false;
         }
     }
 
-    return 1;
+    return true;
 }
 
 static Vec3f D_80854A40 = { 0.0f, 40.0f, 45.0f };
@@ -16197,63 +16225,67 @@ static LinkAnimationHeader* sMagicSpellCastFinish[] = {
 static u8 sSpellLengthCount[] = { 70, 10, 10 };
 
 /**
- * Casting magic spell. actionVar1 is the spell that is casted (Farore 0, Nayru 1, Din 2).
+ * Casting magic spell.
+ * actionVar1/castedSpell is the spell that is casted (Farore 0, Nayru 1, Din 2).
+ * actionVar2/castPhase is the casting phase detailed below.
  * Four phases:
- * 1) General start cast animation, started by setup function       (actionVar2 is 0)
- * - When finished, start init spell animation and set actionVar2 to 1.
- * 2) Init spell cast animation                                     (actionVar2 is 1)
- * - Wait for animation to finish. Then set actionVar2 to 2.
- * - If Farore, actionVar2 is initially decreased to set respawn point.
- * 3) Loop spell cast animation.                                    (actionVar2 is >=2)
- * - Increase actionVar2 until higher than spell cast length frame count.
+ * 0) General start cast animation, started by setup function       (castPhase is 0)
+ * - When finished, start init spell animation and set castPhase to 1.
+ * 1) Init spell cast animation                                     (castPhase is 1)
+ * - Wait for animation to finish. Then set castPhase to 2.
+ * - If Farore, castPhase is initially decreased to set respawn point.
+ * 2) Loop spell cast animation.                                    (castPhase is >=2)
+ * - Increase castPhase until higher than spell cast length frame count.
  * - Then, start finish spell cast animation.
  * - Set actionVar to -1 to signal end of action.
- * 4) Finish spell cast animation.                                  (actionVar1 is -1)
+ * 3) Finish spell cast animation.                                  (castedSpell is -1)
  * - When animation finished, exit action.
  */
 void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
-    // If true, player has finished 1), 2) or 4).
+    // If true: Phase 0), 2) or 3) has finished.
     if (LinkAnimation_Update(play, &this->skelAnime)) {
-        // 4) When finished, actionVar1 has been set to -1 = exit action
-        if (this->av1.actionVar1 < 0) { 
+        // 3) When finished, castedSpell has been set to -1 = exit action
+        if (this->av1.castedSpell < 0) {
             if ((this->itemAction == PLAYER_IA_NAYRUS_LOVE) || (gSaveContext.magicState == MAGIC_STATE_IDLE)) {
                 Player_SetupIdleDependingOnTargetKeepAnim(this, play);
                 Camera_SetFinishedFlag(Play_GetCamera(play, CAM_ID_MAIN));
             }
-        // 1) and 2), move to next phase
+        // 0) and 1), move to next phase
         } else {
-            // 1) Start init spell cast animation. Set actionVar2 to 1 below
-            if (this->av2.actionVar2 == 0) {
-                LinkAnimation_PlayOnceSetSpeed(play, &this->skelAnime, sMagicSpellCastInit[this->av1.actionVar1],
+            // 0) Start init spell cast animation. Set castPhase to 1 below
+            if (this->av2.castPhase == 0) {
+                LinkAnimation_PlayOnceSetSpeed(play, &this->skelAnime, sMagicSpellCastInit[this->av1.castedSpell],
                                                0.83f);
 
-                if (Player_SpawnMagicSpell(play, this, this->av1.actionVar1) != NULL) {
+                if (Player_SpawnMagicSpell(play, this, this->av1.castedSpell) != NULL) {
                     this->stateFlags1 |= PLAYER_STATE1_28 | PLAYER_STATE1_CUTSCENE;
-                    if ((this->av1.actionVar1 != 0) || (gSaveContext.respawn[RESPAWN_MODE_TOP].data <= 0)) {
+                    if ((this->av1.castedSpell != 0) || (gSaveContext.respawn[RESPAWN_MODE_TOP].data <= 0)) {
                         gSaveContext.magicState = MAGIC_STATE_CONSUME_SETUP;
                     }
                 } else {
                     Magic_Reset(play);
                 }
-            // 2) Start looping the main casting animation. Increase actionVar2 to 2 below
+            // 1) Start looping the main casting animation. Increase castPhase to 2 below
             } else {
-                LinkAnimation_PlayLoopSetSpeed(play, &this->skelAnime, sMagicSpellCastMain[this->av1.actionVar1],
+                LinkAnimation_PlayLoopSetSpeed(play, &this->skelAnime, sMagicSpellCastMain[this->av1.castedSpell],
                                                0.83f);
 
-                // Farore: set negative actionVar2 to set respawn point below
-                if (this->av1.actionVar1 == 0) {
-                    this->av2.actionVar2 = -10;
+                // Farore: set negative castPhase to set respawn point below
+                // Minor note: Thus Farore consumes magic in 0) above, but the actual spell effect
+                // of setting a respawn point in 2) below is slightly delayed.
+                if (this->av1.castedSpell == 0) {
+                    this->av2.castPhase = -10;
                 }
             }
-            this->av2.actionVar2++;
+            this->av2.castPhase++;
         }
     } else {
-        // 3) Farore, after starting main cast
-        if (this->av2.actionVar2 < 0) {
-            this->av2.actionVar2++;
+        // 2) Farore, after starting main cast
+        if (this->av2.castPhase < 0) {
+            this->av2.castPhase++;
 
-            // Set Farore respawn point when actionVar2 reaches 0
-            if (this->av2.actionVar2 == 0) {
+            // Set Farore respawn point when castPhase reaches 0
+            if (this->av2.castPhase == 0) {
                 gSaveContext.respawn[RESPAWN_MODE_TOP].data = 1;
                 Play_SetupRespawnPoint(play, RESPAWN_MODE_TOP,
                                        PLAYER_PARAMS(PLAYER_START_MODE_FARORES_WIND, PLAYER_START_BG_CAM_DEFAULT));
@@ -16268,12 +16300,12 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 gSaveContext.save.info.fw.roomIndex = gSaveContext.respawn[RESPAWN_MODE_DOWN].roomIndex;
                 gSaveContext.save.info.fw.tempSwchFlags = gSaveContext.respawn[RESPAWN_MODE_DOWN].tempSwchFlags;
                 gSaveContext.save.info.fw.tempCollectFlags = gSaveContext.respawn[RESPAWN_MODE_DOWN].tempCollectFlags;
-                this->av2.actionVar2 = 2;   // Re-enter function flow
+                this->av2.castPhase = 2;   // Re-enter function flow
             }
-        // 1), 2) and 3)
-        } else if (this->av1.actionVar1 >= 0) {
-            // 1) Sfx for general start cast animation
-            if (this->av2.actionVar2 == 0) {
+        // 0), 1) and 2)
+        } else if (this->av1.castedSpell >= 0) {
+            // 0) Sfx for general start cast animation
+            if (this->av2.castPhase == 0) {
                 static AnimSfxEntry D_80854A80[] = {
                     { NA_SE_PL_SKIP, ANIMSFX_DATA(ANIMSFX_TYPE_GENERAL, 20) },
                     { NA_SE_VO_LI_SWORD_N, ANIMSFX_DATA(ANIMSFX_TYPE_VOICE, 20) },
@@ -16281,8 +16313,8 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 };
 
                 Player_ProcessAnimSfxList(this, D_80854A80);
-            // 2) Sfx for starting spell init cast
-            } else if (this->av2.actionVar2 == 1) {
+            // 1) Sfx for starting spell init cast
+            } else if (this->av2.castPhase == 1) {
                 static AnimSfxEntry D_80854A8C[][2] = {
                     {
                         { 0, ANIMSFX_DATA(ANIMSFX_TYPE_WALKING, 20) },
@@ -16298,18 +16330,18 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                     },
                 };
 
-                Player_ProcessAnimSfxList(this, D_80854A8C[this->av1.actionVar1]);
+                Player_ProcessAnimSfxList(this, D_80854A8C[this->av1.castedSpell]);
                 // Dins, let go of cutscene state slightly before action end
-                if ((this->av1.actionVar1 == 2) && LinkAnimation_OnFrame(&this->skelAnime, 30.0f)) {
+                if ((this->av1.castedSpell == 2) && LinkAnimation_OnFrame(&this->skelAnime, 30.0f)) {
                     this->stateFlags1 &= ~(PLAYER_STATE1_28 | PLAYER_STATE1_CUTSCENE);
                 }
-            // 3) Increment actionVar2 until higher than spell cast length. Then enter next phase by starting
-            // finish spell cast animation and set actionVar1 to -1 to enable exiting action when animation finished
-            } else if (sSpellLengthCount[this->av1.actionVar1] < this->av2.actionVar2++) {
-                LinkAnimation_PlayOnceSetSpeed(play, &this->skelAnime, sMagicSpellCastFinish[this->av1.actionVar1],
+            // 2) Increment castPhase until higher than spell cast length. Then enter next phase by starting
+            // finish spell cast animation and set castedSpell to -1 to enable exiting action when animation finished
+            } else if (sSpellLengthCount[this->av1.castedSpell] < this->av2.castPhase++) {
+                LinkAnimation_PlayOnceSetSpeed(play, &this->skelAnime, sMagicSpellCastFinish[this->av1.castedSpell],
                                                0.83f);
                 this->yaw = this->actor.shape.rot.y;
-                this->av1.actionVar1 = -1;
+                this->av1.castedSpell = -1;
             }
         }
     }

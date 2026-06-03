@@ -794,16 +794,16 @@ void EnMd_BlockPath(EnMd* this, PlayState* play) {
     }
 
     if ((this->interactInfo.talkState == NPC_TALK_STATE_IDLE) && (play->sceneId == SCENE_LOST_WOODS)) {
-        if (player->stateFlags2 & PLAYER_STATE2_24) {
+        if (player->stateFlags2 & PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR) {
             player->stateFlags2 |= PLAYER_STATE2_25;
-            player->unk_6A8 = &this->actor;
+            player->ocarinaTalkActor = &this->actor;
             Message_StartOcarina(play, OCARINA_ACTION_CHECK_SARIA);
             this->actionFunc = EnMd_ListenToOcarina;
             return;
         }
 
         if (this->actor.xzDistToPlayer < (30.0f + this->collider.dim.radius)) {
-            player->stateFlags2 |= PLAYER_STATE2_23;
+            player->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
         }
     }
 }
@@ -822,7 +822,7 @@ void EnMd_ListenToOcarina(EnMd* this, PlayState* play) {
         this->actionFunc = EnMd_BlockPath;
         play->msgCtx.ocarinaMode = OCARINA_MODE_04;
     } else {
-        player->stateFlags2 |= PLAYER_STATE2_23;
+        player->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
     }
 }
 

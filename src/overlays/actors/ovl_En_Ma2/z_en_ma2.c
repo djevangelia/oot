@@ -298,13 +298,13 @@ void EnMa2_WaitToEndTalk(EnMa2* this, PlayState* play) {
 void EnMa2_WaitForOcarina(EnMa2* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
 
-    if (player->stateFlags2 & PLAYER_STATE2_24) {
+    if (player->stateFlags2 & PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR) {
         player->stateFlags2 |= PLAYER_STATE2_25;
-        player->unk_6A8 = &this->actor;
+        player->ocarinaTalkActor = &this->actor;
         Message_StartOcarina(play, OCARINA_ACTION_CHECK_EPONA);
         this->actionFunc = EnMa2_WaitForEponasSong;
     } else if (this->actor.xzDistToPlayer < 30.0f + this->collider.dim.radius) {
-        player->stateFlags2 |= PLAYER_STATE2_23;
+        player->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
     }
 }
 
@@ -321,7 +321,7 @@ void EnMa2_WaitForEponasSong(EnMa2* this, PlayState* play) {
         this->actionFunc = EnMa2_ForceTalkAfterSong;
         play->msgCtx.ocarinaMode = OCARINA_MODE_04;
     } else {
-        player->stateFlags2 |= PLAYER_STATE2_23;
+        player->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
     }
 }
 
@@ -329,7 +329,7 @@ void EnMa2_ForceTalkAfterSong(EnMa2* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
 
     if (DECR(this->timer)) {
-        player->stateFlags2 |= PLAYER_STATE2_23;
+        player->stateFlags2 |= PLAYER_STATE2_OCARINA_INVITE;
     } else {
         if (this->interactInfo.talkState == NPC_TALK_STATE_IDLE) {
             this->actor.flags |= ACTOR_FLAG_TALK_OFFER_AUTO_ACCEPTED;

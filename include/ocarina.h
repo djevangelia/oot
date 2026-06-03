@@ -80,7 +80,7 @@ typedef enum OcarinaMode {
     /* 0x01 */ OCARINA_MODE_01,
     /* 0x02 */ OCARINA_MODE_02,
     /* 0x03 */ OCARINA_MODE_03,
-    /* 0x04 */ OCARINA_MODE_04,
+    /* 0x04 */ OCARINA_MODE_04, // Stop playing
     /* 0x05 */ OCARINA_MODE_05,
     /* 0x06 */ OCARINA_MODE_06,
     /* 0x07 */ OCARINA_MODE_07,

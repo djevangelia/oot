@@ -3247,6 +3247,7 @@ void Message_DrawMain(PlayState* play, Gfx** p) {
                     SFX_PLAY_CENTERED(NA_SE_SY_OCARINA_ERROR);
                     msgCtx->stateTimer = 10;
                     msgCtx->msgMode = MSGMODE_OCARINA_FAIL;
+                // Stop playing
                 } else if (CHECK_BTN_ALL(input->press.button, BTN_B)) {
                     AudioOcarina_SetInstrument(OCARINA_INSTRUMENT_OFF);
                     play->msgCtx.ocarinaMode = OCARINA_MODE_04;
