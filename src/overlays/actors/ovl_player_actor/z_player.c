@@ -13174,7 +13174,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
         this->stateFlags2 &=
             ~(PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_CAN_CLIMB_GRABBABLE | PLAYER_STATE2_MAKING_NOISE | PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT |
               PLAYER_STATE2_PUSH_PULL_CAMERA | PLAYER_STATE2_FORCE_SAND_FLOOR_SOUND | PLAYER_STATE2_CLIMB_STILL | PLAYER_STATE2_FROZEN |
-              PLAYER_STATE2_DO_ACTION_ENTER | PLAYER_STATE2_CAN_HORSE_DISMOUNT | PLAYER_STATE2_DARK_LINK_ROOM_SHADOW);
+              PLAYER_STATE2_DO_ACTION_ENTER | PLAYER_STATE2_CAN_HORSE_DISMOUNT | PLAYER_STATE2_DARK_LINK_ROOM_REFLECTION);
         this->stateFlags3 &= ~PLAYER_STATE3_CHECK_GROUND_COLLISION;
 
         func_80847298(this);
@@ -13191,8 +13191,8 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
         sUseHeldItem = sHeldItemButtonIsHeldDown = false;
         sSavedCurrentMask = this->currentMask;
 
-        // Cannot do action functions if Dark Link is standing on Link's sword,
-        // or if Dark Link is paralyzed by Deku Nut
+        // Player cannot do action functions if Dark Link is standing on player sword,
+        // and Dark Link cannot if paralyzed by Deku Nut
         if (!(this->stateFlags3 & PLAYER_STATE3_DARK_LINK_IMMOBILIZED)) {
             this->actionFunc(this, play);
         }
@@ -13511,7 +13511,7 @@ void Player_Draw(Actor* thisx, PlayState* play2) {
             }
         }
 
-        if (this->stateFlags2 & PLAYER_STATE2_DARK_LINK_ROOM_SHADOW) {
+        if (this->stateFlags2 & PLAYER_STATE2_DARK_LINK_ROOM_REFLECTION) {
             f32 sp78 = BINANG_TO_RAD_ALT2((u16)(play->gameplayFrames * 600));
             f32 sp74 = BINANG_TO_RAD_ALT2((u16)(play->gameplayFrames * 1000));
 

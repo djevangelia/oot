@@ -764,7 +764,7 @@ typedef struct WeaponInfo {
 #define PLAYER_STATE2_OCARINA_INVITE (1 << 23) // Actor is "inviting" player to play Ocarina. If player puts up Ocarina in this state, the actor will react.
 #define PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR (1 << 24) // Player has "accepted the Ocarina invite" and is now using Ocarina next to the actor
 #define PLAYER_STATE2_25 (1 << 25) // Ocarina NPC related
-#define PLAYER_STATE2_DARK_LINK_ROOM_SHADOW (1 << 26) // Set by Dark Link's room as long as Dark Link is not spawned. Causes Link's shadow to be drawn in the water.
+#define PLAYER_STATE2_DARK_LINK_ROOM_REFLECTION (1 << 26) // Set by Dark Link's room as long as Dark Link is not spawned. Causes Link's reflection to be drawn in the water.
 #define PLAYER_STATE2_USING_OCARINA (1 << 27) // Playing the ocarina or warping out from an ocarina warp song
 #define PLAYER_STATE2_IDLE_FIDGET (1 << 28) // Playing a fidget idle animation (under typical circumstances, see `Player_ChooseNextIdleAnim` for more info)
 #define PLAYER_STATE2_SHOPPING (1 << 29) // Set by shopkeepers when player is talking and shopping (including Happy Mask Shop)

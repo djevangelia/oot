@@ -373,6 +373,7 @@ void EnTorch2_Update(Actor* thisx, PlayState* play2) {
 
                             // Handles the reaction to a one-handed stab. If the conditions are satisfied,
                             // Dark Link jumps on Link's sword. Otherwise he backflips away.
+                            //! @bug Dark Link can jump onto player's sword even when immobilized by Deku Nut
 
                             if ((this->meleeWeaponState == 0) && (sCounterState == 0) &&
                                 (player->invincibilityTimer == 0) &&
