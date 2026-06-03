@@ -5292,7 +5292,7 @@ void Player_HandleDamageHitResponse(PlayState* play, Player* this, s32 hitRespon
 }
 
 /**
- * Does not have to be lava damage.
+ * Check if floor does damage. Any form of damage, does not have to be lava damage.
  * @return 0 if FLOOR_TYPE_2, 1 if FLOOR_TYPE_3, -1 if not damaging
  */
 s32 Player_IsDamageFloor(s32 floorType) {
@@ -7362,6 +7362,7 @@ static BottleSwingInfo sBottleSwingInfo[] = {
 
 /**
  * Sets up swinging empty bottle or fishing, depending on the item used.
+ * @return true if player used bottle or started fishing
  */
 s32 Player_SetupBottleFishing(PlayState* play, Player* this) {
     if (sUseHeldItem) {
@@ -7377,7 +7378,7 @@ s32 Player_SetupBottleFishing(PlayState* play, Player* this) {
 
             Player_PlaySfx(this, NA_SE_IT_SWORD_SWING);
             Player_PlayVoiceSfx(this, NA_SE_VO_LI_AUTO_JUMP);
-            return 1;
+            return true;
         }
 
         // Fishing
@@ -7402,7 +7403,7 @@ s32 Player_SetupBottleFishing(PlayState* play, Player* this) {
 #endif
             {
                 Sfx_PlaySfxCentered(NA_SE_SY_ERROR);
-                return 0;
+                return false;
             }
 
 #if OOT_VERSION < NTSC_1_1
@@ -7415,13 +7416,13 @@ s32 Player_SetupBottleFishing(PlayState* play, Player* this) {
 #endif
 
             Player_AnimPlayOnce(play, this, &gPlayerAnim_link_fishing_throw);
-            return 1;
+            return true;
         } else {
-            return 0;
+            return false;
         }
     }
 
-    return 0;
+    return false;
 }
 
 /**
