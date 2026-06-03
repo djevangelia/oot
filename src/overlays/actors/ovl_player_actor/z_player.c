@@ -1850,7 +1850,6 @@ void Player_DetachHeldActor(PlayState* play, Player* this) {
  * Often called together with Player_DetachHeldActor (by Player_ResetStatesHeldActor).
  */
 void Player_ResetStates(PlayState* play, Player* this) {
-    // Remove carrying state if no held actor. Also, remove interact range actor if no get item ID
     if ((this->stateFlags1 & PLAYER_STATE1_CARRYING_ACTOR) && (this->heldActor == NULL)) {
         if (this->interactRangeActor != NULL) {
             if (this->getItemId == GI_NONE) {
@@ -16233,23 +16232,26 @@ static u8 sSpellLengthCount[] = { 70, 10, 10 };
  * - When finished, start init spell animation and set castPhase to 1.
  * 1) Init spell cast animation                                     (castPhase is 1)
  * - Wait for animation to finish. Then set castPhase to 2.
- * - If Farore, castPhase is initially decreased to set respawn point.
+ *  (Farore: castPhase is initially set to -10 to set respawn point
+ *   before it is set to 2.)
  * 2) Loop spell cast animation.                                    (castPhase is >=2)
  * - Increase castPhase until higher than spell cast length frame count.
  * - Then, start finish spell cast animation.
- * - Set actionVar to -1 to signal end of action.
+ * - Set castedSpell to -1 to signal end of action.
  * 3) Finish spell cast animation.                                  (castedSpell is -1)
- * - When animation finished, exit action.
+ * - When animation finished, exit action and set idle action.
  */
 void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
     // If true: Phase 0), 2) or 3) has finished.
     if (LinkAnimation_Update(play, &this->skelAnime)) {
+
         // 3) When finished, castedSpell has been set to -1 = exit action
         if (this->av1.castedSpell < 0) {
             if ((this->itemAction == PLAYER_IA_NAYRUS_LOVE) || (gSaveContext.magicState == MAGIC_STATE_IDLE)) {
                 Player_SetupIdleDependingOnTargetKeepAnim(this, play);
                 Camera_SetFinishedFlag(Play_GetCamera(play, CAM_ID_MAIN));
             }
+
         // 0) and 1), move to next phase
         } else {
             // 0) Start init spell cast animation. Set castPhase to 1 below
@@ -16265,14 +16267,16 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 } else {
                     Magic_Reset(play);
                 }
+
             // 1) Start looping the main casting animation. Increase castPhase to 2 below
             } else {
                 LinkAnimation_PlayLoopSetSpeed(play, &this->skelAnime, sMagicSpellCastMain[this->av1.castedSpell],
                                                0.83f);
 
-                // Farore: set negative castPhase to set respawn point below
+                // Farore: Set negative castPhase to set respawn point below
                 // Minor note: Thus Farore consumes magic in 0) above, but the actual spell effect
-                // of setting a respawn point in 2) below is slightly delayed.
+                // of setting a respawn point in 2) below is slightly delayed. If spellcast can be interrupted
+                // during these frames, player loses magic points without getting spell effect.
                 if (this->av1.castedSpell == 0) {
                     this->av2.castPhase = -10;
                 }
@@ -16280,7 +16284,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
             this->av2.castPhase++;
         }
     } else {
-        // 2) Farore, after starting main cast
+        // 2) (Farore only) After starting main cast
         if (this->av2.castPhase < 0) {
             this->av2.castPhase++;
 
@@ -16302,6 +16306,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 gSaveContext.save.info.fw.tempCollectFlags = gSaveContext.respawn[RESPAWN_MODE_DOWN].tempCollectFlags;
                 this->av2.castPhase = 2;   // Re-enter function flow
             }
+
         // 0), 1) and 2)
         } else if (this->av1.castedSpell >= 0) {
             // 0) Sfx for general start cast animation
@@ -16331,7 +16336,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 };
 
                 Player_ProcessAnimSfxList(this, D_80854A8C[this->av1.castedSpell]);
-                // Dins, let go of cutscene state slightly before action end
+                // Dins only: Let go of cutscene state slightly before action end
                 if ((this->av1.castedSpell == 2) && LinkAnimation_OnFrame(&this->skelAnime, 30.0f)) {
                     this->stateFlags1 &= ~(PLAYER_STATE1_28 | PLAYER_STATE1_CUTSCENE);
                 }
