@@ -2719,7 +2719,7 @@ void Player_ResetForwardFootWeight(Player* this) {
 /**
  * @param item any item ID
  * @return true if player->itemAction is item ID's item action (and item ID is not none)
- * @bug player->heldItemAction might not be equal to player->itemAction.
+ * @note player->heldItemAction might not be equal to player->itemAction.
  */
 s32 Player_ItemIsInUse(Player* this, s32 item) {
     if ((item < ITEM_NONE_FE) && (Player_ItemToItemAction(item) == this->itemAction)) {
@@ -2895,7 +2895,7 @@ void Player_StartChangingHeldItem(Player* this, PlayState* play) {
 }
 
 /**
- * Check if player is in a state to where item buttons should be processed and then do so.
+ * Check if player is in a state where item buttons should be processed and then do so.
  * If not - if player just started changing held item, continue the item change process.
  */
 void Player_UpdateItems(Player* this, PlayState* play) {
@@ -3380,7 +3380,7 @@ s32 Player_Ranged_InitAiming(Player* this, PlayState* play) {
 /**
  * Checks Hookshot status. Also called by Player_Action_HookshotFly to check if
  * player is to fly.
- * @return 1 if Hookshot is in player's hand and usable, 0 if fired and/or flying
+ * @return true if Hookshot is in player's hand and usable, 0 if fired and/or flying
  */
 s32 Player_HookshotAvailable(Player* this) {
     if (this->actor.child != NULL) {
@@ -3630,7 +3630,7 @@ void Player_SetParallel(Player* this) {
 
     if (!(this->skelAnime.movementFlags & ANIM_FLAG_OVERRIDE_MOVEMENT) &&
         (this->actor.bgCheckFlags & BGCHECKFLAG_PLAYER_WALL_INTERACT) && (sShapeYawToTouchedWall < 0x2000)) {
-        // snap to the wall
+        // Snap to the wall
         this->yaw = this->actor.shape.rot.y = this->actor.wallYaw + 0x8000;
     }
 
@@ -3685,7 +3685,7 @@ s32 Player_UpperAction_CarryActor(Player* this, PlayState* play) {
             LinkAnimation_PlayLoop(play, &this->upperSkelAnime, &gPlayerAnim_link_normal_carryB_wait);
         }
 
-        //! @bug For bomb, bombchu this can never run. The carry state is removed when dropping/throwing or
+        //! @bug For bomb, bombchu this can never run. The carry state is removed when dropping/throwing
         //! or exploding in hands.
 #if OOT_VERSION < NTSC_1_1
         heldActor = this->heldActor;
@@ -3856,14 +3856,14 @@ s32 Player_UpperAction_BoomerangWaitForCatchAnim(Player* this, PlayState* play) 
  * The new action will be run at the usual time (called by Player_UpdateCommon), which can be during the same
  * frame (if SetupAction is called early by functions in update), or during the next.
  * If SetupAction is called multiple times the same frame, the previous change is overwritten, which can lead
- * to the previous action never actually being run.
+ * to the previously set action never actually being run.
  * 
  * @param actionFunc the new action function
- * @return 0 if actionFunc == this->actionFunc (no change), else 1
+ * @return false if actionFunc == this->actionFunc (no change), else true
  */
 s32 Player_SetupAction(PlayState* play, Player* this, PlayerActionFunc actionFunc, s32 flags) {
     if (actionFunc == this->actionFunc) {
-        return 0;
+        return false;
     }
 
     if (Player_Action_PlayOcarina == this->actionFunc) {
@@ -3899,7 +3899,7 @@ s32 Player_SetupAction(PlayState* play, Player* this, PlayerActionFunc actionFun
 
     Player_StopSfxActionChange(this);
 
-    return 1;
+    return true;
 }
 
 /**
@@ -8749,7 +8749,7 @@ void Player_SetupNotOnGroundFromClimb(Player* this, PlayState* play) {
 
 /**
  * Check if player is still on a climbable wall/ladder an hasn't pressed A
- * @return 1 if detaching, else 0
+ * @return true if detaching, else false
  */
 s32 Player_DetachFromClimb(Player* this, PlayState* play) {
     if (!CHECK_BTN_ALL(sControlInput->press.button, BTN_A) &&
@@ -9934,12 +9934,12 @@ s32 Player_ActivateMeleeByFrames(Player* this, f32 blureFrame, f32 colliderFrame
     if ((blureFrame <= this->skelAnime.curFrame) && (this->skelAnime.curFrame <= finalFrame)) {
         // If current frame is between blureFrame and colliderFrame, -1
         Player_ActivateMeleeWeapon(this, (colliderFrame <= this->skelAnime.curFrame) ? 1 : -1);
-        return 1;
+        return true;
     }
 
     // Outside of blureFrame and finalFrame, we do not want any blure effect or collider
     Player_InactivateMeleeWeapon(this);
-    return 0;
+    return false;
 }
 
 /**
@@ -9948,13 +9948,13 @@ s32 Player_ActivateMeleeByFrames(Player* this, f32 blureFrame, f32 colliderFrame
 s32 Player_TryCrouchStab(Player* this, PlayState* play) {
     if (!Player_IsChildWithHylianShield(this) && (Player_GetMeleeWeaponHeld2(this) != 0) && sUseHeldItem) {
         Player_AnimPlayOnce(play, this, &gPlayerAnim_link_normal_defense_kiru);
-        this->av1.actionVar1 = 1;
+        this->av1.isCrouchStabbing = true;
         this->meleeWeaponAnimation = PLAYER_MWA_STAB_1H;
         this->yaw = this->actor.shape.rot.y + this->upperLimbRot.y;
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 int func_80842964(Player* this, PlayState* play) {
@@ -9995,7 +9995,7 @@ void Player_DecreaseStickUseNone(PlayState* play, Player* this) {
 
 /**
  * Breaks a Deku Stick if full length.
- * @return 1 if holding full-length Deku Stick, otherwise 0
+ * @return true if holding full-length Deku Stick, otherwise false
  */
 s32 Player_BreakDekuStick(PlayState* play, Player* this) {
     //! @bug Broken Deku Stick cannot break. Presumably leftover from earlier development.
@@ -10007,16 +10007,16 @@ s32 Player_BreakDekuStick(PlayState* play, Player* this) {
             Player_PlaySfx(this, NA_SE_IT_WOODSTICK_BROKEN);
         }
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 /**
  * If player doesn't have Biggoron and has hits remaining on Giant's Knife, damage sword.
  * Break it if sword health becomes 0.
- * @return 1 if holding Giant's Knife/Biggoron, otherwise 0 (regardless of damage/breaking)
+ * @return true if holding Giant's Knife/Biggoron, otherwise false (regardless of damage/breaking)
  */
 s32 Player_DamageGiantsKnife(PlayState* play, Player* this) {
     if (this->heldItemAction == PLAYER_IA_SWORD_BIGGORON) {
@@ -10029,10 +10029,10 @@ s32 Player_DamageGiantsKnife(PlayState* play, Player* this) {
             }
         }
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -10073,7 +10073,7 @@ void Player_SetupMeleeAttackBounce(PlayState* play, Player* this) {
 }
 
 /**
- * @return 1 if the melee attack was interrupted (new action function is set by this function), otherwise 0
+ * @return true if the melee attack was interrupted (new action function is set by this function), otherwise false
  */
 s32 Player_CheckMeleeInterrupt(PlayState* play, Player* this) {
     f32 weaponLengthFactor;
@@ -10153,7 +10153,7 @@ s32 Player_CheckMeleeInterrupt(PlayState* play, Player* this) {
             } else {
                 Player_SetupMeleeAttackBounce(play, this);
                 Player_SetFreezeFlashTimer(play);
-                return 1;
+                return true;
             }
         }
 
@@ -10177,13 +10177,13 @@ s32 Player_CheckMeleeInterrupt(PlayState* play, Player* this) {
                 if (this->actor.colChkInfo.atHitBacklash == HIT_BACKLASH_ELECTRIC) {
                     this->actor.colChkInfo.damage = 8;
                     Player_HandleDamageHitResponse(play, this, PLAYER_HIT_RESPONSE_ELECTRIFIED, 0.0f, 0.0f, this->actor.shape.rot.y, 20);
-                    return 1;
+                    return true;
                 }
             }
         }
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -10472,6 +10472,7 @@ void Player_Action_KnockbackRise(Player* this, PlayState* play) {
     if (this->stateFlags1 & PLAYER_STATE1_CUTSCENE) {
         LinkAnimation_Update(play, &this->skelAnime);
     } else {
+        // Player can try moving out of the rise animation to exit action quicker
         interruptResult = Player_TryActionInterrupt(play, this, &this->skelAnime, 16.0f);
 
         if ((interruptResult != PLAYER_INTERRUPT_NEW_ACTION) &&
@@ -11202,7 +11203,7 @@ void Player_Action_ChargeSpinAttackLeftRight(Player* this, PlayState* play) {
 /**
  * Used for jumping to grab a ledge from ground and water. When directly climbing up,
  * this action covers the entire movement. If jumping followed by hanging,
- * a different action follows after the jump.
+ * the jump and the hang are different actions respectively.
  */
 void Player_Action_JumpUpWaterClimb(Player* this, PlayState* play) {
     s32 animFinished;
@@ -11236,7 +11237,7 @@ void Player_Action_JumpUpWaterClimb(Player* this, PlayState* play) {
             Player_SetupNotOnGroundWithState(this, NULL, speed, play, NA_SE_VO_LI_AUTO_JUMP);
             this->av2.actionVar2 = -1;
         }
-    // Smaller jumps that directly lead to climbing up and standing
+    // Small jump that directly leads to climbing up and standing
     } else {
         interruptResult = Player_TryActionInterrupt(play, this, &this->skelAnime, 4.0f);
 
@@ -11246,7 +11247,7 @@ void Player_Action_JumpUpWaterClimb(Player* this, PlayState* play) {
         }
 
         if (animFinished || (interruptResult >= PLAYER_INTERRUPT_MOVE)) {
-            Player_SetupIdlePlayOnce(this, play); // Finished
+            Player_SetupIdlePlayOnce(this, play); // Finished climbing up
             this->stateFlags1 &= ~(PLAYER_STATE1_CLIMB_JUMP_UP | PLAYER_STATE1_18);
             return;
         }
