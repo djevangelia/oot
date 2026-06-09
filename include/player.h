@@ -672,7 +672,7 @@ typedef struct PlayerAgeProperties {
     /* 0x28 */ f32 surfaceSwimDepth;    // player swimming on the surface will have a depthInWater approximately this deep
     /* 0x2C */ f32 startSwimDepth;  // player starts swimming when walking into water
     /* 0x30 */ f32 diveResurfaceDepth;  // player starts to resurface from a dive
-    /* 0x34 */ f32 unk_34;
+    /* 0x34 */ f32 grabLedgeAboveHeight; // Min ledge Y height required for player to be able to grab ledge from above
     /* 0x38 */ f32 wallCheckRadius;
     /* 0x3C */ f32 unk_3C;
     /* 0x40 */ f32 unk_40;
@@ -794,6 +794,12 @@ typedef void (*AfterPutAwayFunc)(struct PlayState*, struct Player*);
 #define UNK6AE_ROT_UPPER_Y (1 << 7)
 #define UNK6AE_ROT_UPPER_Z (1 << 8)
 
+#define UNK6AD_NORMAL_CAMERA 0 // Set in any but the circumstances below.
+#define UNK6AD_FIRST_PERSON_UNARMED 1 // Player is in first person without a ranged weapon in hand.
+#define UNK6AD_FIRST_PERSON_ARMED 2 // Player is in first person with a ranged weapon in hand.
+#define UNK6AD_CUTSCENE_CAMERA 3 // Camera is controlled by a cutscene (including talking)
+#define UNK6AD_CS_ITEM_CAMERA 4 // Camera is controlled by a cutscene item
+
 typedef struct Player {
     /* 0x0000 */ Actor actor;
     /* 0x014C */ s8 currentTunic; // current tunic from `PlayerTunic`
@@ -847,7 +853,7 @@ typedef struct Player {
     /* 0x0444 */ u8 csAction;
     /* 0x0445 */ u8 prevCsAction;
     /* 0x0446 */ u8 cueId;
-    /* 0x0447 */ u8 unk_447;
+    /* 0x0447 */ u8 unk_447; // Set during sliding door transition but never used
     /* 0x0448 */ Actor* csActor; // Actor involved in a `csAction`. Typically the actor that invoked the cutscene.
     /* 0x044C */ char unk_44C[0x004];
     /* 0x0450 */ Vec3f unk_450;
@@ -922,6 +928,8 @@ typedef struct Player {
         s8 crouchShielding; // Player_Action_ShieldBlock: Player is currently crouching and shielding (not standing up i.e. not target/parallel)
         s8 iceScale; // Player_Action_Frozen: Used to scale the drawn ice encasing when growing.
         s8 castedSpell; // Player_Action_CastMagicSpell: Magic spell that is being casted.
+        s8 isClimbWall; // Player_Action_Climbing: True if climbed wall is a climbable wall and not ladder
+        s8 messageItemSfxDone; // Player_GetItemTextboxSfx: Player has received textbox, item and sfx for get item
     } av1; // "Action Variable 1": context dependent variable that has different meanings depending on what action is currently running
 
     /* 0x0850 */ union {
@@ -942,12 +950,33 @@ typedef struct Player {
         s16 plantBeanTimer; // Player_Action_PlantMagicBean: Timer for planting bean sequence (80 frames)
         s16 startShieldFinish; // Player_Action_ShieldCrouch: Starting shield animation has finished
         s16 castPhase; // Player_Action_CastMagicSpell: Current phase of the spell cast action.
+        s16 drinkPhase; // Player_Action_DrinkBottle: Current phase of drinking action.
+        s16 hasStartedCharging; // Player_Action_ChargeSpinAttackNeutral etc: Player has charged a spin attack to the point it cannot be aborted
+        s16 liftFrameCount; // Player_Action_LiftWithoutStrength: Frame count for trying to lift
+        s16 liftFinished; // Player_Action_LiftSilverRock: Flag that the rock lift animation is finished, and player is holding the rock
     } av2; // "Action Variable 2": context dependent variable that has different meanings depending on what action is currently running
 
-    /* 0x0854 */ f32 unk_854;
-    /* 0x0858 */ f32 unk_858;   // Used in Bow/Slingshot string rebound calculations among other things.
-    /* 0x085C */ f32 unk_85C; // stick length among other things (TODO: probably part of an "fwork" array). Used in Bow/Slingshot string rebound calculations.
-    /* 0x0860 */ s16 unk_860; // stick flame timer among other things. Flag for which ranged weapon is used, negative if not loaded yet.
+    /* 0x0854 */ f32 rippleVar; // Used when spawning ripples in water
+
+    /* 0x0858 */ union {
+        f32 weaponVar1;
+        f32 spinAttackCharge;
+        f32 stringReboundVar1;
+        f32 fishingVar1;
+    } unk_858;   // Used in Bow/Slingshot string rebound calculations among other things.
+    /* 0x085C */ union {
+        f32 weaponVar2;
+        f32 stringReboundVar2;
+        f32 dekuStickLength; // 1.0f is full length Deku Stick
+        f32 fishingVar2;
+    } unk_85C; // stick length among other things (TODO: probably part of an "fwork" array). Used in Bow/Slingshot string rebound calculations.
+    /* 0x0860 */ union { 
+        s16 specialWeaponState;
+        s16 rangedWeaponState;
+        s16 fishingRodState;
+        s16 dekuStickState;
+    } unk_860; // stick flame timer among other things. Flag for which ranged weapon is used, negative if not loaded yet.
+    
     /* 0x0862 */ s8 giDrawID; // get item draw ID + 1
     /* 0x0864 */ f32 unk_864;
     /* 0x0868 */ f32 moveFrame; // Current frame of the walk-run cycle animation.

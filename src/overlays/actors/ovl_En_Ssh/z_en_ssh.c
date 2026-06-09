@@ -452,7 +452,7 @@ void EnSsh_CheckBodyStickHit(EnSsh* this, PlayState* play) {
     ColliderElement* elem = &this->colliderCylinders[0].elem;
     Player* player = GET_PLAYER(play);
 
-    if (player->unk_860 != 0) {
+    if (player->unk_860.dekuStickState != 0) {
         elem->acDmgInfo.dmgFlags |= DMG_DEKU_STICK;
         this->colliderCylinders[1].elem.acDmgInfo.dmgFlags &= ~DMG_DEKU_STICK;
         this->colliderCylinders[2].elem.acDmgInfo.dmgFlags &= ~DMG_DEKU_STICK;

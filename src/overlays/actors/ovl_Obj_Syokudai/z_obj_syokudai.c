@@ -197,11 +197,11 @@ void ObjSyokudai_Update(Actor* thisx, PlayState* play2) {
         if (interactionType != 0) {
             if (this->litTimer != 0) {
                 if (interactionType < 0) {
-                    if (player->unk_860 == 0) {
-                        player->unk_860 = 210;
+                    if (player->unk_860.dekuStickState == 0) {
+                        player->unk_860.dekuStickState = 210;
                         SFX_PLAY_AT_POS(&this->actor.projectedPos, NA_SE_EV_FLAME_IGNITION);
-                    } else if (player->unk_860 < 200) {
-                        player->unk_860 = 200;
+                    } else if (player->unk_860.dekuStickState < 200) {
+                        player->unk_860.dekuStickState = 200;
                     }
                 } else if (dmgFlags & DMG_ARROW_NORMAL) {
                     arrow = (EnArrow*)this->flameCollider.base.ac;
@@ -214,10 +214,10 @@ void ObjSyokudai_Update(Actor* thisx, PlayState* play2) {
                     this->litTimer = 50 * litTimeScale + 100;
                 }
             } else if ((torchType != 0) && (((interactionType > 0) && (dmgFlags & DMG_FIRE)) ||
-                                            ((interactionType < 0) && (player->unk_860 != 0)))) {
+                                            ((interactionType < 0) && (player->unk_860.dekuStickState != 0)))) {
 
-                if ((interactionType < 0) && (player->unk_860 < 200)) {
-                    player->unk_860 = 200;
+                if ((interactionType < 0) && (player->unk_860.dekuStickState < 200)) {
+                    player->unk_860.dekuStickState = 200;
                 }
                 if (torchCount == 0) {
                     this->litTimer = -1;

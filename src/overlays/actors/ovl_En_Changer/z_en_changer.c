@@ -211,11 +211,11 @@ void EnChanger_Init(Actor* thisx, PlayState* play2) {
 }
 
 void EnChanger_Wait(EnChanger* this, PlayState* play) {
-    if (this->leftChest->unk_1F4 != 0) {
+    if (this->leftChest->openingMajorItem != 0) {
         this->timer = 80;
         Flags_SetTreasure(play, this->rightChestNum & 0x1F);
         this->actionFunc = EnChanger_OpenChests;
-    } else if (this->rightChest->unk_1F4 != 0) {
+    } else if (this->rightChest->openingMajorItem != 0) {
         this->selectedChest = CHEST_RIGHT;
         this->timer = 80;
         Flags_SetTreasure(play, this->leftChestNum & 0x1F);
@@ -285,7 +285,7 @@ void EnChanger_OpenChests(EnChanger* this, PlayState* play) {
 }
 
 void EnChanger_SetHeartPieceFlag(EnChanger* this, PlayState* play) {
-    if (this->finalChest->unk_1F4 != 0) {
+    if (this->finalChest->openingMajorItem != 0) {
         if (!GET_ITEMGETINF(ITEMGETINF_1B)) {
             SET_ITEMGETINF(ITEMGETINF_1B);
         }

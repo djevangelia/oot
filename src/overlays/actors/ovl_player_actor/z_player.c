@@ -425,7 +425,7 @@ static PlayerAgeProperties sAgeProperties[] = {
         44.8f,            // surfaceSwimDepth
         56.0f,            // startSwimDepth
         68.0f,            // diveResurfaceDepth
-        70.0f,            // unk_34
+        70.0f,            // grabLedgeAboveHeight
         18.0f,            // wallCheckRadius
         15.0f,            // unk_3C
         70.0f,            // unk_40
@@ -477,7 +477,7 @@ static PlayerAgeProperties sAgeProperties[] = {
         29.6f,                   // surfaceSwimDepth
         32.0f,                   // startSwimDepth
         48.0f,                   // diveResurfaceDepth
-        70.0f * (11.0f / 17.0f), // unk_34
+        70.0f * (11.0f / 17.0f), // grabLedgeAboveHeight
         14.0f,                   // wallCheckRadius
         12.0f,                   // unk_3C
         55.0f,                   // unk_40
@@ -1511,6 +1511,13 @@ static void (*sItemActionInitFuncs[])(PlayState* play, Player* this) = {
     Player_InitDefaultIA,        // PLAYER_IA_LENS_OF_TRUTH
 };
 
+typedef enum MagicSpellID {
+    /* -1 */ MAGIC_SPELL_CAST_FINISH = -1,
+    /*  0 */ MAGIC_SPELL_FARORE,
+    /*  1 */ MAGIC_SPELL_NAYRU,
+    /*  2 */ MAGIC_SPELL_DIN
+} MagicSpellID;
+
 typedef enum ItemChangeType {
     /*  0 */ PLAYER_ITEM_CHG_0,
     /*  1 */ PLAYER_ITEM_CHG_1,
@@ -1743,7 +1750,7 @@ BAD_RETURN(s32) Player_ZeroSpeedXZ(Player* this) {
  */
 BAD_RETURN(s32) Player_ZeroXZNormalCamera(Player* this) {
     Player_ZeroSpeedXZ(this);
-    this->unk_6AD = 0;
+    this->unk_6AD = UNK6AD_NORMAL_CAMERA;
 }
 
 /**
@@ -1863,7 +1870,7 @@ void Player_ResetStates(PlayState* play, Player* this) {
 
     // Inactivate melee weapons, set camera, remove player states
     Player_InactivateMeleeWeapon(this);
-    this->unk_6AD = 0;
+    this->unk_6AD = UNK6AD_NORMAL_CAMERA;
 
     Player_EndOnePointCutscene(play, this); // This also removes PLAYER_STATE2_DEEP_WATER and PLAYER_STATE2_DIVING
     Camera_SetFinishedFlag(Play_GetCamera(play, CAM_ID_MAIN));
@@ -2493,7 +2500,7 @@ s32 Player_HoldsTwoHandedWeapon2(Player* this) {
 #endif
 
 void Player_InitDekuStickIA(PlayState* play, Player* this) {
-    this->unk_85C = 1.0f; // Full length
+    this->unk_85C.dekuStickLength = 1.0f; // Full length
 }
 
 void Player_InitHammerIA(PlayState* play, Player* this) {
@@ -2501,8 +2508,8 @@ void Player_InitHammerIA(PlayState* play, Player* this) {
 
 /**
  * Init function for equipping Bow or Slingshot.
- * unk_860 is set to negative number representing the weapon (1 = Bow, 2 = Slingshot, 3 = Hookshot/Longshot).
- * unk_860 is set positive later when loaded for the first time in Player_UpperAction_RangedNotLoaded.
+ * unk_860.rangedWeaponState is set to negative number representing the weapon (1 = Bow, 2 = Slingshot, 3 = Hookshot/Longshot).
+ * unk_860.rangedWeaponState is set positive later when loaded for the first time in Player_UpperAction_RangedNotLoaded.
  */
 void Player_InitBowOrSlingshotIA(PlayState* play, Player* this) {
     // Set state that player is holding a ranged weapon.
@@ -2510,9 +2517,9 @@ void Player_InitBowOrSlingshotIA(PlayState* play, Player* this) {
     this->stateFlags1 |= PLAYER_STATE1_HOLDING_RANGED;
 
     if (this->heldItemAction != PLAYER_IA_SLINGSHOT) {
-        this->unk_860 = -1; // Bow
+        this->unk_860.rangedWeaponState = -1; // Bow
     } else {
-        this->unk_860 = -2; // Slingshot
+        this->unk_860.rangedWeaponState = -2; // Slingshot
     }
 }
 
@@ -2555,17 +2562,20 @@ void Player_InitExplosiveIA(PlayState* play, Player* this) {
 
 /**
  * Init function for when equipping Hookshot or Longshot
- * unk_860 is set to negative number representing the weapon (1 = Bow, 2 = Slingshot, 3 = Hookshot/Longshot).
- * unk_860 is set positive later when loaded for the first time in Player_UpperAction_RangedNotLoaded.
+ * unk_860.rangedWeaponState is set to negative number representing the weapon (1 = Bow, 2 = Slingshot, 3 = Hookshot/Longshot).
+ * unk_860.rangedWeaponState is set positive later when loaded for the first time in Player_UpperAction_RangedNotLoaded.
  */
 void Player_InitHookshotIA(PlayState* play, Player* this) {
-    // Set state that player is holding a ranged weapon.
-    // This remains set until changing the item, by Player_InitItemAction(WithAnim).
-    this->stateFlags1 |= PLAYER_STATE1_HOLDING_RANGED;
-    this->unk_860 = -3;
+    this->stateFlags1 |= PLAYER_STATE1_HOLDING_RANGED; // Remains set until Hookshot unequipped
+    this->unk_860.rangedWeaponState = -3;
     this->heldActor =
         Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_ARMS_HOOK, this->actor.world.pos.x,
                            this->actor.world.pos.y, this->actor.world.pos.z, 0, this->actor.shape.rot.y, 0, 0);
+    //! @bug If the Hookshot cannot spawn (such as the correct object not loaded for child,
+    //! or lack of memory in the Zelda arena) player will be unable to move and softlocked unless
+    //! they were already moving towards and enter a scene transition.
+    //! Majora's Mask prevents this by calling Player_UseItem with ITEM_NONE if the actor
+    //! fails to spawn.
 }
 
 void Player_InitBoomerangIA(PlayState* play, Player* this) {
@@ -2573,9 +2583,9 @@ void Player_InitBoomerangIA(PlayState* play, Player* this) {
 }
 
 void Player_InitItemAction(PlayState* play, Player* this, s8 itemAction) {
-    this->unk_85C = 0.0f;
-    this->unk_858 = 0.0f;
-    this->unk_860 = 0;
+    this->unk_85C.weaponVar2 = 0.0f;
+    this->unk_858.weaponVar1 = 0.0f;
+    this->unk_860.specialWeaponState = 0;
 
     this->heldItemAction = this->itemAction = itemAction;
     this->modelGroup = this->nextModelGroup;
@@ -2799,7 +2809,7 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
             }
         }
 
-        // Else, check which button player is pressing (if any)
+        // Else - check which button player is pressing (if any)
         for (i = 0; i < ARRAY_COUNT(sItemButtons); i++) {
             if (CHECK_BTN_ALL(sControlInput->press.button, sItemButtons[i])) {
                 break;
@@ -2809,7 +2819,7 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
         item = Player_GetItemOnButton(play, i);
 
         if (item >= ITEM_NONE_FE) {
-            // Item not an actual item - not pressing a button. Check if player is holding a button
+            // Item not an actual item - not pressing a button. Now check if player is holding a button
             for (i = 0; i < ARRAY_COUNT(sItemButtons); i++) {
                 if (CHECK_BTN_ALL(sControlInput->cur.button, sItemButtons[i])) {
                     break;
@@ -2962,7 +2972,7 @@ s32 Player_ReturnItemAmmo(PlayState* play, Player* this, s32* itemPtr, s32* type
  * - Play sound for weapon loading
  * - Set type of arrow (normal or magic)
  * - Spawn arrow/seed
- * The unk_860 >= 0 requirement prevents firing instantly when entering aimed mode.
+ * The unk_860.rangedWeaponState >= 0 requirement prevents firing instantly when entering aimed mode.
  * @return 0 if trying to use magic arrow when magic is already in use, otherwise 1
  */
 s32 Player_Ranged_LoadWeapon(Player* this, PlayState* play) {
@@ -2990,14 +3000,14 @@ s32 Player_Ranged_LoadWeapon(Player* this, PlayState* play) {
 
         // If weapon has been loaded at least once since entering aiming mode.
         // This is necessary to prevent weapons from firing when entering aiming
-        if (this->unk_860 >= 0) {
-            Player_PlaySfx(this, sRangedWeaponLoad[ABS(this->unk_860) - 1]); // 0 = Bow, 1 = Slingshot, 2 = Hookshot
+        if (this->unk_860.rangedWeaponState >= 0) {
+            Player_PlaySfx(this, sRangedWeaponLoad[ABS(this->unk_860.rangedWeaponState) - 1]); // 0 = Bow, 1 = Slingshot, 2 = Hookshot
 
             // If not holding hookshot and has ammo for the weapon
             if (!Player_HoldsHookshot(this) && (Player_ReturnItemAmmo(play, this, &item, &arrowType) > 0)) {
                 magicArrowType = arrowType - ARROW_FIRE;
 
-                if (this->unk_860 >= 0) {
+                if (this->unk_860.rangedWeaponState >= 0) {
                     // If arrow type is magic (by item id), but not enough magic, replace with normal arrow
                     if ((magicArrowType >= 0) && (magicArrowType <= 2) &&
                         !Magic_RequestChange(play, sMagicArrowCosts[magicArrowType], MAGIC_CONSUME_NOW)) {
@@ -3312,16 +3322,16 @@ s32 Player_Ranged_InitAnimations(Player* this, PlayState* play) {
 }
 
 /**
- * Check for Bow/Slingshot. If shooting gallery is active, B is used to load.
+ * Check used by Bow/Slingshot. If Shooting Gallery is active, B is used to load/fire weapon.
  */
 int Player_ShootingGalleryPressB(PlayState* play) {
     return (play->shootingGalleryStatus > 0) && CHECK_BTN_ALL(sControlInput->press.button, BTN_B);
 }
 
 /**
- * Check for Bow/Slingshot. If shooting gallery is active (not 0), and the game is over (<0)
+ * Check used by Bow/Slingshot. If Shooting Gallery is active (not 0), and the game is over (<0)
  * or any of the following buttons are held, keep weapon loaded.
- * This prevents firing arrows/seeds after game end and and arrows/seeds not fully loaded at game end
+ * This prevents firing arrows/seeds after game end and arrows/seeds not fully loaded at game end
  */
 int Player_ShootingGalleryKeepLoaded(PlayState* play) {
     return (play->shootingGalleryStatus != 0) &&
@@ -3333,30 +3343,30 @@ int Player_ShootingGalleryKeepLoaded(PlayState* play) {
  * Called when starting to aim with a ranged weapon (Bow, Slingshot, Hookshot, Boomerang) by update functions
  * as part of initialization, as well as continuously when ranged weapon is loaded by upper action functions.
  *
- * Ranged weapons can be equipped during Z-target or normal camera state (unk_6AD = 0) (note, not during regular first
+ * Ranged weapons can be equipped during Z-target or normal camera state (unk_6AD = UNK6AD_NORMAL_CAMERA) (note, not during regular first
  * person = 1). They can be aimed when player 1) is in Z-target/parallel mode (= 0), or 2) in first person (= 2)
- * - If player is aiming in unk_6AD = 0: player is either Z-targeting, or first person aiming camera mode is not valid.
+ * - If player is aiming in unk_6AD = UNK6AD_NORMAL_CAMERA: player is either Z-targeting, or first person aiming camera mode is not valid.
  * - If neither of those are true, player has to be in first person aiming mode - unk_6AD must be changed to 2.
- * - If aiming in unk_6AD = 2, ensure that player hos not started Z-targeting and that aiming camera mode is still
+ * - If aiming in unk_6AD = UNK6AD_FIRST_PERSON_ARMED, ensure that player hos not started Z-targeting and that aiming camera mode is still
  * valid.
  * - This function does not change 2 to 0, that is handled through Player_Action_InFirstPerson (exiting first person).
  * @return 1 if _not_ in first person mode, otherwise 0
  */
 s32 Player_Ranged_CheckNotFirstPerson(Player* this, PlayState* play) {
-    if ((this->unk_6AD == 0) || (this->unk_6AD == 2)) {
+    if ((this->unk_6AD == UNK6AD_NORMAL_CAMERA) || (this->unk_6AD == UNK6AD_FIRST_PERSON_ARMED)) {
         // CAM_MODE_AIM_CHILD and CAM_MODE_AIM_BOOMERANG are valid for all camera settings where CAM_MODE_AIM_ADULT is
         // valid (except Normal 3 which seems to be underwater + Horse where child can't aim), so only check for adult
         if (Player_IsZTargeting(this) ||
             (Camera_CheckValidMode(Play_GetCamera(play, CAM_ID_MAIN), CAM_MODE_AIM_ADULT) == 0)) {
             // Player is either z-targeting or not in a camera mode where first person aiming is not possible.
             // = Player is not in first person mode
-            return 1;
+            return true;
         }
         // Player is in first person aiming mode, set flag
-        this->unk_6AD = 2;
+        this->unk_6AD = UNK6AD_FIRST_PERSON_ARMED;
     }
 
-    return 0;
+    return false;
 }
 
 s32 Player_Ranged_InitAiming(Player* this, PlayState* play) {
@@ -3403,10 +3413,10 @@ s32 Player_HookshotAvailable(Player* this) {
  * through functions inside Player_Ranged_InitAiming.
  */
 s32 Player_UpperAction_RangedNotAiming(Player* this, PlayState* play) {
-    // Invert unk_860 to flag that the weapon hasn't been loaded,
+    // Invert unk_860.rangedWeaponState to flag that the weapon hasn't been loaded,
     // to prevent issues when going into aiming mode
-    if (this->unk_860 >= 0) {
-        this->unk_860 = -this->unk_860;
+    if (this->unk_860.rangedWeaponState >= 0) {
+        this->unk_860.rangedWeaponState = -this->unk_860.rangedWeaponState;
     }
 
     if ((!Player_HoldsHookshot(this) || Player_HookshotAvailable(this)) && !Player_StartStandShield(play, this) &&
@@ -3420,7 +3430,7 @@ s32 Player_UpperAction_RangedNotAiming(Player* this, PlayState* play) {
 /**
  * Fires a loaded ranged weapon. Reduces ammo count, requests rumble,
  * fixes actor-child relationships.
- * @return 1 if successful firing, otherwise 0
+ * @return true if successful firing, otherwise false
  */
 s32 Player_Ranged_FireWeapon(PlayState* play, Player* this) {
     s32 item;
@@ -3459,10 +3469,10 @@ s32 Player_Ranged_FireWeapon(PlayState* play, Player* this) {
         this->heldActor = NULL;
 
         // Successful fire
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 static u16 sBowSlingshotFlick[] = { NA_SE_IT_BOW_FLICK, NA_SE_IT_SLING_FLICK };
@@ -3518,18 +3528,18 @@ s32 Player_UpperAction_RangedLoaded(Player* this, PlayState* play) {
     Player_Ranged_CheckNotFirstPerson(this, play);
 
     // If rangedAnimPullLoadDone > 0 the weapon pull out or loading animation has finished.
-    // If unk_860 < 0 the weapon has not been loaded yet since pulling it up.
+    // If unk_860.rangedWeaponState < 0 the weapon has not been loaded yet since pulling it up.
     if ((this->rangedAnimPullLoadDone > 0) &&
-        ((this->unk_860 < 0) || (!sHeldItemButtonIsHeldDown && !Player_ShootingGalleryKeepLoaded(play)))) {
+        ((this->unk_860.rangedWeaponState < 0) || (!sHeldItemButtonIsHeldDown && !Player_ShootingGalleryKeepLoaded(play)))) {
         // Set Player_UpperAction_RangedNotLoaded to next Upper Action function, as the weapon either is not
-        // currently loaded (unk_860 < 0), or will be fired (below).
+        // currently loaded (unk_860.rangedWeaponState < 0), or will be fired (below).
         Player_SetUpperActionFunc(this, Player_UpperAction_RangedNotLoaded);
         // If weapon has been loaded at least once since starting aiming
-        if (this->unk_860 >= 0) {
+        if (this->unk_860.rangedWeaponState >= 0) {
             if (HoldsHookshot == 0) {
                 // Could not fire due to no child actor - i.e. no ammo. Play flick sound
                 if (!Player_Ranged_FireWeapon(play, this)) {
-                    Player_PlaySfx(this, sBowSlingshotFlick[ABS(this->unk_860) - 1]); // Sound 0 = Bow, 1 = Slingshot
+                    Player_PlaySfx(this, sBowSlingshotFlick[ABS(this->unk_860.rangedWeaponState) - 1]); // Sound 0 = Bow, 1 = Slingshot
                 }
                 // If using Hookshot, fire if we are on ground
             } else if (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) {
@@ -3544,7 +3554,7 @@ s32 Player_UpperAction_RangedLoaded(Player* this, PlayState* play) {
         // Set flag that our weapon is currently loaded. When first changing item to ranged weapon or going into aiming
         // mode, this flag will be set for a few frames while the changing animations are played (when
         // rangedAnimPullLoadDone == 0), and then the action function will be swapped above as rangedAnimPullLoadDone >
-        // 0 yet unk_860 < 0 = (weapon never loaded)
+        // 0 yet unk_860.rangedWeaponState < 0 = (weapon never loaded)
         this->stateFlags1 |= PLAYER_STATE1_RANGED_WEAPON_LOADED;
     }
 
@@ -3565,9 +3575,9 @@ s32 Player_UpperAction_RangedNotLoaded(Player* this, PlayState* play) {
     }
 
     if (!Player_StartStandShield(play, this) &&
-        (sUseHeldItem || ((this->unk_860 < 0) && sHeldItemButtonIsHeldDown) || Player_ShootingGalleryPressB(play))) {
-        // Set positive unk_860 to flag loaded weapon
-        this->unk_860 = ABS(this->unk_860);
+        (sUseHeldItem || ((this->unk_860.rangedWeaponState < 0) && sHeldItemButtonIsHeldDown) || Player_ShootingGalleryPressB(play))) {
+        // Set positive unk_860.rangedWeaponState to flag loaded weapon
+        this->unk_860.rangedWeaponState = ABS(this->unk_860.rangedWeaponState);
 
         if (Player_Ranged_LoadWeapon(this, play)) {
             if (Player_HoldsHookshot(this)) {
@@ -3584,7 +3594,7 @@ s32 Player_UpperAction_RangedNotLoaded(Player* this, PlayState* play) {
             this->rangedAimingOrLoaded--;
         }
 
-        if (Player_IsZTargeting(this) || (this->unk_6AD != 0) || (this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON)) {
+        if (Player_IsZTargeting(this) || (this->unk_6AD != UNK6AD_NORMAL_CAMERA) || (this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON)) {
             if (this->rangedAimingOrLoaded == 0) {
                 // rangedAimingOrLoaded > 0 is used as a flag to signal that player is currently in aiming mode
                 // If any condition above is met, player is currently aiming - maintain >0
@@ -3709,7 +3719,7 @@ s32 Player_UpperAction_CarryActor(Player* this, PlayState* play) {
 }
 
 /**
- * Only called by Boomerang when catching, Player_UpperAction_BoomerangWaitReturn
+ * Only called by Boomerang when catching (Player_UpperAction_BoomerangWaitReturn)
  */
 void Player_GetAgeBoomerangDLs(Player* this, Gfx** dLists) {
     this->leftHandDLists = dLists + gSaveContext.save.linkAge;
@@ -4038,7 +4048,7 @@ void Player_UseItem(PlayState* play, Player* this, s32 item) {
                     ((gSaveContext.magicCapacity != 0) && (gSaveContext.magicState == MAGIC_STATE_IDLE) &&
                      (gSaveContext.save.info.playerData.magic >= sMagicSpellCosts[temp]))) {
                     this->itemAction = useItemIA;
-                    this->unk_6AD = 4;
+                    this->unk_6AD = UNK6AD_CS_ITEM_CAMERA;
                 } else {
                     Sfx_PlaySfxCentered(NA_SE_SY_ERROR);
                 }
@@ -4057,7 +4067,7 @@ void Player_UseItem(PlayState* play, Player* this, s32 item) {
                 if (!Player_CheckHostileLockOn(this) ||
                     ((useItemIA >= PLAYER_IA_BOTTLE_POTION_RED) && (useItemIA <= PLAYER_IA_BOTTLE_FAIRY))) {
                     TitleCard_Clear(play, &play->actorCtx.titleCtx);
-                    this->unk_6AD = 4;
+                    this->unk_6AD = UNK6AD_CS_ITEM_CAMERA;
                     this->itemAction = useItemIA;
                 }
 
@@ -4404,7 +4414,7 @@ void Player_UpdateZTargeting(Player* this, PlayState* play) {
         (this->stateFlags1 & (PLAYER_STATE1_CHARGING_SPIN_ATTACK | PLAYER_STATE1_BOOMERANG_THROWN))) {
         if (!isTalking) {
             if (!(this->stateFlags1 & PLAYER_STATE1_BOOMERANG_THROWN) &&
-                ((this->heldItemAction != PLAYER_IA_FISHING_POLE) || (this->unk_860 == 0)) &&
+                ((this->heldItemAction != PLAYER_IA_FISHING_POLE) || (this->unk_860.fishingRodState == 0)) &&
                 CHECK_BTN_ALL(sControlInput->press.button, BTN_Z)) {
                 if (this->actor.category == ACTORCAT_PLAYER) {
                     // The next lock-on actor defaults to the actor Navi is hovering over.
@@ -4531,7 +4541,7 @@ s32 Player_CalcSpeedAndYawFromControlStick(PlayState* play, Player* this, f32* o
     f32 floorPitchInfluence;
     f32 speedCap;
 
-    if ((this->unk_6AD != 0) || (play->transitionTrigger == TRANS_TRIGGER_START) ||
+    if ((this->unk_6AD != UNK6AD_NORMAL_CAMERA) || (play->transitionTrigger == TRANS_TRIGGER_START) ||
         (this->stateFlags1 & PLAYER_STATE1_START_SCENE_TRANSITION)) {
         *outSpeedTarget = 0.0f;
         *outYawTarget = this->actor.shape.rot.y;
@@ -4835,13 +4845,13 @@ s32 Player_TryActionInterrupt(PlayState* play, Player* this, SkelAnime* skelAnim
 }
 
 /**
- * Spawn spin attack "En_M_Thunder" actor. If quickspin (arg2 != 0), set high start charge (unk_858).
+ * Spawn spin attack "En_M_Thunder" actor. If quickspin (arg2 != 0), set high start charge (unk_858.spinAttackCharge).
  */
 void Player_SpawnThunderActor(PlayState* play, Player* this, s32 arg2) {
     if (arg2 != 0) {
-        this->unk_858 = 0.0f;
+        this->unk_858.spinAttackCharge = 0.0f;
     } else {
-        this->unk_858 = 0.5f;
+        this->unk_858.spinAttackCharge = 0.5f;
     }
 
     this->stateFlags1 |= PLAYER_STATE1_CHARGING_SPIN_ATTACK;
@@ -5124,8 +5134,8 @@ void Player_SetupNotOnGroundWithAV(Player* this, PlayState* play) {
     Player_SetupAction(play, this, Player_Action_NotOnGround, 0);
     Player_AnimPlayLoop(play, this, &gPlayerAnim_link_normal_landing_wait);
     this->av2.actionVar2 = 1;
-    if (this->unk_6AD != 3) {
-        this->unk_6AD = 0;
+    if (this->unk_6AD != UNK6AD_CUTSCENE_CAMERA) {
+        this->unk_6AD = UNK6AD_NORMAL_CAMERA;
     }
 }
 
@@ -5406,6 +5416,7 @@ s32 func_808382DC(Player* this, PlayState* play) {
             Player_PlayVoiceSfx(this, NA_SE_VO_LI_TAKEN_AWAY);
             play->haltAllActors = true;
             Sfx_PlaySfxCentered(NA_SE_OC_ABYSS);
+        // Knockback hit
         } else if ((this->knockbackType != PLAYER_KNOCKBACK_NONE) &&
                    ((this->knockbackType >= PLAYER_KNOCKBACK_LARGE) || (this->invincibilityTimer == 0))) {
             u8 knockbackResponse[] = {
@@ -5477,15 +5488,17 @@ s32 func_808382DC(Player* this, PlayState* play) {
                     Player_BurnDekuShield(this, play);
                 }
 
-                return 0;
+                return false;
             }
 
+            // Cannot take damage during these conditions
             if ((this->postReviveFrames != 0) || (this->invincibilityTimer > 0) || (this->stateFlags1 & PLAYER_STATE1_KNOCKBACK_FROZEN) ||
                 (this->csAction != PLAYER_CSACTION_NONE) || (this->meleeWeaponQuads[0].base.atFlags & AT_HIT) ||
                 (this->meleeWeaponQuads[1].base.atFlags & AT_HIT)) {
-                return 0;
+                return false;
             }
 
+            // Taken AC hit
             if (this->cylinder.base.acFlags & AC_HIT) {
                 Actor* ac = this->cylinder.base.ac;
                 s32 hitResponseType;
@@ -5573,7 +5586,7 @@ s32 Player_ActionHandler_Ledges(Player* this, PlayState* play) {
 
     if (!(this->stateFlags1 & PLAYER_STATE1_CARRYING_ACTOR) && (this->ledgeClimbType >= PLAYER_LEDGE_CLIMB_MEDIUM) &&
         (!(this->stateFlags1 & PLAYER_STATE1_IN_WATER) || (this->ageProperties->hangLedgeHeight > this->yDistToLedge))) {
-        climb = 0;
+        climb = false;
 
         if (Player_SwimmingWithoutIronBoots(this)) {
             if (this->actor.depthInWater < 50.0f) {
@@ -5595,16 +5608,16 @@ s32 Player_ActionHandler_Ledges(Player* this, PlayState* play) {
             if (this->ledgeClimbDelayTimer >= 6) {
                 this->stateFlags2 |= PLAYER_STATE2_CAN_CLIMB_GRABBABLE;
                 if (CHECK_BTN_ALL(sControlInput->press.button, BTN_A)) {
-                    climb = 1;
+                    climb = true;
                 }
             }
         // Regular ledges are climbed automatically or with A
         } else if ((this->ledgeClimbDelayTimer >= 6) || CHECK_BTN_ALL(sControlInput->press.button, BTN_A)) {
-            climb = 1;
+            climb = true;
         }
 
         // If player starts a jump up to climb
-        if (climb != 0) {
+        if (climb != false) {
             Player_SetupAction(play, this, Player_Action_JumpUpWaterClimb, 0);
 
             this->stateFlags1 |= PLAYER_STATE1_18;
@@ -5993,7 +6006,7 @@ s32 Player_ActionHandler_Doors(Player* this, PlayState* play) {
             if (this->doorType <= PLAYER_DOORTYPE_AJAR) {
                 doorActor->textId = 0xD0;
                 Player_StartTalking(play, doorActor);
-                return 0;
+                return false;
             }
 
             doorDirection = this->doorDirection;
@@ -6017,7 +6030,7 @@ s32 Player_ActionHandler_Doors(Player* this, PlayState* play) {
                 Player_SetupSceneSlidingTransition(play, this, 50.0f, this->actor.shape.rot.y);
 
                 this->av1.actionVar1 = 0;
-                this->unk_447 = this->doorType;
+                this->unk_447 = this->doorType; // unused
                 this->stateFlags1 |= PLAYER_STATE1_CUTSCENE;
 
                 this->unk_450.x = this->actor.world.pos.x + ((doorDirection * 20.0f) * sp74);
@@ -6344,7 +6357,12 @@ void Player_SetupGetItem(PlayState* play, Player* this) {
     }
 }
 
-s32 func_8083A4A8(Player* this, PlayState* play) {
+/**
+ * Running off a ledge and jumping with speed. Set jump animation.
+ * Calls setup for Player_Action_NotOnGround with setting state PLAYER_STATE1_18.
+ * @return always true
+ */
+s32 Player_JumpFromLedge(Player* this, PlayState* play) {
     s16 yawDiff;
     LinkAnimationHeader* anim;
     f32 speed;
@@ -6366,7 +6384,7 @@ s32 func_8083A4A8(Player* this, PlayState* play) {
     Player_SetupNotOnGroundWithState(this, anim, speed, play, NA_SE_VO_LI_AUTO_JUMP);
     this->av2.actionVar2 = 1;
 
-    return 1;
+    return true;
 }
 
 void Player_SetupHanging(PlayState* play, Player* this, CollisionPoly* arg2, f32 arg3, LinkAnimationHeader* anim) {
@@ -6386,8 +6404,9 @@ void Player_SetupHanging(PlayState* play, Player* this, CollisionPoly* arg2, f32
 }
 
 /**
- * Check if player can grab the ledge when walking outside of a floor edge.
- * @return true if grab
+ * Check if player can grab the ledge when walking outside of a floor edge, and either
+ * hang or start climbing.
+ * @return true if grab (hang/climb)
  */
 s32 Player_GrabLedgeFromAbove(Player* this, PlayState* play) {
     //! @bug `floorPitch` and `floorPitchAlt` are cleared to 0 before this function is called, because the player
@@ -6396,25 +6415,27 @@ s32 Player_GrabLedgeFromAbove(Player* this, PlayState* play) {
     if ((this->actor.depthInWater < -80.0f) && (ABS(this->floorPitch) < 0xAAA) && (ABS(this->floorPitchAlt) < 0xAAA)) {
         CollisionPoly* wallPoly;
         s32 bgId;
-        Vec3f sp74;
+        Vec3f oldPos;
         Vec3f result;
         f32 temp1;
 
-        sp74.x = this->actor.prevPos.x - this->actor.world.pos.x;
-        sp74.z = this->actor.prevPos.z - this->actor.world.pos.z;
+        oldPos.x = this->actor.prevPos.x - this->actor.world.pos.x;
+        oldPos.z = this->actor.prevPos.z - this->actor.world.pos.z;
 
-        temp1 = sqrtf(SQ(sp74.x) + SQ(sp74.z));
+        // Use moved distance to determine exact position for line test
+        temp1 = sqrtf(SQ(oldPos.x) + SQ(oldPos.z));
         if (temp1 != 0.0f) {
             temp1 = 5.0f / temp1;
         } else {
             temp1 = 0.0f;
         }
 
-        sp74.x = this->actor.prevPos.x + (sp74.x * temp1);
-        sp74.y = this->actor.world.pos.y;
-        sp74.z = this->actor.prevPos.z + (sp74.z * temp1);
+        oldPos.x = this->actor.prevPos.x + (oldPos.x * temp1);
+        oldPos.y = this->actor.world.pos.y;
+        oldPos.z = this->actor.prevPos.z + (oldPos.z * temp1);
 
-        if (BgCheck_EntityLineTest1(&play->colCtx, &this->actor.world.pos, &sp74, &result, &wallPoly, true, false, false,
+        // Check if current vs old position line test intersects with a wallpoly
+        if (BgCheck_EntityLineTest1(&play->colCtx, &this->actor.world.pos, &oldPos, &result, &wallPoly, true, false, false,
                                     true, &bgId) &&
             (ABS(wallPoly->normal.y) < 600)) {
             f32 nx = COLPOLY_GET_NORMAL(wallPoly->normal.x);
@@ -6425,14 +6446,15 @@ s32 Player_GrabLedgeFromAbove(Player* this, PlayState* play) {
 
             sp54 = Math3D_UDistPlaneToPos(nx, ny, nz, wallPoly->dist, &this->actor.world.pos);
 
-            climb = (sPrevFloorProperty == FLOOR_PROPERTY_6); // = force ledge grab floor
+            climb = (sPrevFloorProperty == FLOOR_PROPERTY_6); // Either force ledge grab floor...
             if (!climb && (SurfaceType_GetWallFlags(&play->colCtx, wallPoly, bgId) & WALL_FLAG_CLIMBABLE)) {
-                climb = 1; // Or climbable wall below
+                climb = 1; // ... or climbable wall below
             }
 
             Player_SetupHanging(play, this, wallPoly, sp54,
                           climb ? &gPlayerAnim_link_normal_Fclimb_startB : &gPlayerAnim_link_normal_fall);
 
+            // Set up climbing
             if (climb) {
                 Player_SetupWaitForPutAway(play, this, Player_SetupClimbing);
 
@@ -6447,7 +6469,7 @@ s32 Player_GrabLedgeFromAbove(Player* this, PlayState* play) {
 
                 this->av2.actionVar2 = -1;
                 this->av1.actionVar1 = climb;
-            } else { // Hanging
+            } else { // Set up hanging
                 this->stateFlags1 |= PLAYER_STATE1_HANGING;
                 this->stateFlags1 &= ~PLAYER_STATE1_PARALLEL;
             }
@@ -6468,7 +6490,13 @@ void Player_SetupClimbUp(Player* this, LinkAnimationHeader* anim, PlayState* pla
 
 static Vec3f sJumpdiveOffset = { 0.0f, 0.0f, 100.0f };
 
-void func_8083AA10(Player* this, PlayState* play) {
+/**
+ * Handle what should happen when player is not in water/cutscene but is not on the ground.
+ * Handle conditions that make this state not a "not on ground" state such as melee attacks/ISG
+ * preventing falling off edges. Then, when player can be considered to be truly off the ground,
+ * set appropriate state and handle special cases such as grabbing ledges, jumpdive.
+ */
+void Player_HandleLeavingGround(Player* this, PlayState* play) {
     s32 yawDiff;
     CollisionPoly* outGroundPoly;
     s32 bgId;
@@ -6513,14 +6541,15 @@ void func_8083AA10(Player* this, PlayState* play) {
 
                 this->floorSfxOffset = this->prevFloorSfxOffset;
 
+                // Running off the ledge. Doesn't check if possible to grab. Jump will be large
                 if ((this->actor.bgCheckFlags & BGCHECKFLAG_GROUND_LEAVE) && !(this->stateFlags1 & PLAYER_STATE1_IN_WATER) &&
                     (sPrevFloorProperty != FLOOR_PROPERTY_6) && (sPrevFloorProperty != FLOOR_PROPERTY_9) &&
                     (sYDistToFloor > 20.0f) && (this->meleeWeaponState == 0) && (ABS(yawDiff) < 0x2000) &&
                     (this->speedXZ > 3.0f)) {
                     
+                    // Check if able to jumpdive
                     if ((sPrevFloorProperty == FLOOR_PROPERTY_11) &&
                         !(this->stateFlags1 & PLAYER_STATE1_CARRYING_ACTOR)) {
-                        // Check if able to jumpdive
                         raycastY = Player_RelativeRaycastDown(play, this, &sJumpdiveOffset, &dest, &outGroundPoly, &bgId);
                         playerY = this->actor.world.pos.y;
 
@@ -6532,11 +6561,11 @@ void func_8083AA10(Player* this, PlayState* play) {
                         }
                     }
 
-                    func_8083A4A8(this, play);
+                    Player_JumpFromLedge(this, play);
                     return;
                 }
-                // Check if player is forced to fall/jump or can grab the ledge
-                if ((sPrevFloorProperty == FLOOR_PROPERTY_9) || (sYDistToFloor <= this->ageProperties->unk_34) ||
+                // Not running. Check if player is forced to fall/jump or can grab the ledge.
+                if ((sPrevFloorProperty == FLOOR_PROPERTY_9) || (sYDistToFloor <= this->ageProperties->grabLedgeAboveHeight) ||
                     !Player_GrabLedgeFromAbove(this, play)) {
                     Player_AnimPlayLoop(play, this, &gPlayerAnim_link_normal_landing_wait);
                     return;
@@ -6560,18 +6589,18 @@ s32 Player_SetFirstPersonCamera(PlayState* play, Player* this) {
 
     // If using Bow, Slingshot, Hookshot or Boomerang in first person,
     // set camera to correct mode
-    if (this->unk_6AD == 2) {
+    if (this->unk_6AD == UNK6AD_FIRST_PERSON_ARMED) {
         if (Player_IsHoldingRanged(this)) {
             if (LINK_IS_ADULT) {
-                camMode = CAM_MODE_AIM_ADULT; // Bow or Hookshot
+                camMode = CAM_MODE_AIM_ADULT;
             } else {
-                camMode = CAM_MODE_AIM_CHILD; // Slingshot
+                camMode = CAM_MODE_AIM_CHILD;
             }
-            // If not holding "ranged", has to be Boomerang
+            // If not holding "ranged", it's Boomerang
         } else {
             camMode = CAM_MODE_AIM_BOOMERANG;
         }
-        // If unk_6AD not 2, player is not in first person with a weapon
+        // If unk_6AD is not UNK6AD_FIRST_PERSON_ARMED, player is not in first person with a weapon
     } else {
         camMode = CAM_MODE_FIRST_PERSON;
     }
@@ -6588,7 +6617,7 @@ s32 Player_SetFirstPersonCamera(PlayState* play, Player* this) {
 s32 Player_StartCsAction(PlayState* play, Player* this) {
     // unk_6AD will get set to 3 in `Player_UpdateCommon` if `this->csAction` is non-zero
     // (with a special case for `PLAYER_CSACTION_7`)
-    if (this->unk_6AD == 3) {
+    if (this->unk_6AD == UNK6AD_CUTSCENE_CAMERA) {
         Player_SetupAction(play, this, Player_Action_CsAction, 0);
 
         if (this->cv.haltActorsDuringCsAction) {
@@ -6626,7 +6655,7 @@ void Player_ObjectDMARequest(Player* this, s16 objectId) {
 void Player_SetupCastMagicSpell(PlayState* play, Player* this, s32 magicSpell) {
     Player_SetupActionPreserveItemAction(play, this, Player_Action_CastMagicSpell, 0);
 
-    this->av1.castedSpell = magicSpell - 3; // AV1 0 = Farore, 1 = Nayru, 2 = Din
+    this->av1.castedSpell = magicSpell - 3; // 0 = Farore, 1 = Nayru, 2 = Din
 
     //! @bug `MAGIC_CONSUME_WAIT_PREVIEW` is not guaranteed to succeed.
     //! Ideally, the return value of `Magic_RequestChange` should be checked before allowing the process of
@@ -6708,12 +6737,12 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
     //! called by Player_TryActionInterrupt (through Player_ActionHandler_0), the trying ends here
     //! with an action interrupt as Player_ActionHandler_0 returns true as soon as this handler finishes.
     //! This is part of ladder dismount cutscene softlock.
-    if ((this->unk_6AD != 0) &&
+    if ((this->unk_6AD != UNK6AD_NORMAL_CAMERA) &&
         (Player_SwimmingWithoutIronBoots(this) || (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
          (this->stateFlags1 & PLAYER_STATE1_RIDING))) {
 
         if (!Player_StartCsAction(play, this)) {
-            if (this->unk_6AD == 4) {
+            if (this->unk_6AD == UNK6AD_CS_ITEM_CAMERA) {
                 // Magic spells
                 relativeIA = Player_ActionToMagicSpell(this, this->itemAction);
                 if (relativeIA >= 0) {
@@ -6727,7 +6756,7 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
                     }
 
                     Player_ZeroXZNormalCamera(this);
-                    return 1;
+                    return true;
                 }
 
                 relativeIA = this->itemAction - PLAYER_IA_ZELDAS_LETTER;
@@ -6840,22 +6869,22 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
                 this->stateFlags1 |= PLAYER_STATE1_FIRST_PERSON;
                 Sfx_PlaySfxCentered(NA_SE_SY_CAMERA_ZOOM_UP);
                 Player_ZeroSpeedXZ(this);
-                return 1;
+                return true;
             } else {
                 // Actions failed, reset unk_6AD
-                this->unk_6AD = 0;
+                this->unk_6AD = UNK6AD_NORMAL_CAMERA;
                 Sfx_PlaySfxCentered(NA_SE_SY_ERROR);
-                return 0;
+                return false;
             }
 
             this->stateFlags1 |= PLAYER_STATE1_28 | PLAYER_STATE1_CUTSCENE;
         }
 
         Player_ZeroXZNormalCamera(this);
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 s32 Player_ActionHandler_Talk(Player* this, PlayState* play) {
@@ -6973,7 +7002,7 @@ s32 Player_SetFirstPersonUnarmed(Player* this, PlayState* play) {
         if ((this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
             (Player_SwimmingWithoutIronBoots(this) &&
              (this->actor.depthInWater < this->ageProperties->startSwimDepth))) {
-            this->unk_6AD = 1;
+            this->unk_6AD = UNK6AD_FIRST_PERSON_UNARMED;
             return true;
         }
     }
@@ -6982,7 +7011,7 @@ s32 Player_SetFirstPersonUnarmed(Player* this, PlayState* play) {
 }
 
 s32 Player_ActionHandler_0(Player* this, PlayState* play) {
-    if (this->unk_6AD != 0) {
+    if (this->unk_6AD != UNK6AD_NORMAL_CAMERA) {
         Player_ActionHandler_13(this, play);
         return true;
     }
@@ -7181,7 +7210,7 @@ void Player_SetupIdlePlayOnce(Player* this, PlayState* play) {
 }
 
 /**
- * Remove a first person or cutscene player state (unk_6ad > 0)
+ * Remove a first person or cutscene player state (unk_6AD > 0)
  */
 void Player_ExitCutsceneFirstPerson(Player* this, PlayState* play) {
     if (!(this->stateFlags3 & PLAYER_STATE3_FLYING_WITH_HOOKSHOT)) {
@@ -7192,7 +7221,7 @@ void Player_ExitCutsceneFirstPerson(Player* this, PlayState* play) {
             Player_SetupIdleDependingOnTarget(this, play);
         }
         if (this->unk_6AD < 4) {
-            this->unk_6AD = 0;
+            this->unk_6AD = UNK6AD_NORMAL_CAMERA;
         }
     }
 
@@ -7341,7 +7370,7 @@ s32 Player_SetupThrowDekuNut(PlayState* play, Player* this) {
         (AMMO(ITEM_DEKU_NUT) != 0)) {
         Player_SetupAction(play, this, Player_Action_ThrowDekuNut, 0);
         Player_AnimPlayOnce(play, this, &gPlayerAnim_link_normal_light_bom);
-        this->unk_6AD = 0;
+        this->unk_6AD = UNK6AD_NORMAL_CAMERA;
         return true;
     }
 
@@ -7407,11 +7436,11 @@ s32 Player_SetupBottleFishing(PlayState* play, Player* this) {
             }
 
 #if OOT_VERSION < NTSC_1_1
-            this->unk_860 = 1;
+            this->unk_860.fishingRodState = 1;
             Player_SetupAction(play, this, Player_Action_FishingCastReel, 0);
 #else
             Player_SetupAction(play, this, Player_Action_FishingCastReel, 0);
-            this->unk_860 = 1;// Casting
+            this->unk_860.fishingRodState = 1;// Casting
             Player_ZeroSpeedXZ(this);
 #endif
 
@@ -7754,7 +7783,7 @@ void Player_EnterWater(PlayState* play, Player* this) {
     this->stateFlags1 |= PLAYER_STATE1_IN_WATER;
     this->stateFlags2 |= PLAYER_STATE2_DEEP_WATER;
     this->stateFlags1 &= ~(PLAYER_STATE1_18 | PLAYER_STATE1_FREE_FALL);
-    this->unk_854 = 0.0f;
+    this->rippleVar = 0.0f;
 
     Player_SetBootData(play, this);
 }
@@ -7861,10 +7890,10 @@ void func_8083D6EC(PlayState* play, Player* this) {
             if (temp4 > 4.0f) {
                 temp4 = 4.0f;
             }
-            this->unk_854 += temp4;
+            this->rippleVar += temp4;
 
-            if (this->unk_854 > 15.0f) {
-                this->unk_854 = 0.0f;
+            if (this->rippleVar > 15.0f) {
+                this->rippleVar = 0.0f;
 
                 ripplePos.x = (Rand_ZeroOne() * 10.0f) + this->actor.world.pos.x;
                 ripplePos.y = this->actor.world.pos.y + this->actor.depthInWater;
@@ -8192,7 +8221,7 @@ s32 Player_ActionHandler_GetItemLift(Player* this, PlayState* play) {
 
                     this->stateFlags1 |= PLAYER_STATE1_GET_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_CUTSCENE;
                     Player_ZeroXZNormalCamera(this);
-                    return 1;
+                    return true;
                 }
 
                 func_8083E4C4(play, this, giEntry);
@@ -8202,11 +8231,12 @@ s32 Player_ActionHandler_GetItemLift(Player* this, PlayState* play) {
         } else if (CHECK_BTN_ALL(sControlInput->press.button, BTN_A) &&
                    !(this->stateFlags1 & PLAYER_STATE1_CARRYING_ACTOR) && !(this->stateFlags2 & PLAYER_STATE2_DEEP_WATER)) {
             if (this->getItemId != GI_NONE) {
-                GetItemEntry* giEntry = &sGetItemTable[-this->getItemId - 1];
-                EnBox* chest = (EnBox*)interactedActor;
                 //! @bug It is assumed that if getItemId <0, the actor must be a chest.
                 //! This can lead to opening of other actors.
+                GetItemEntry* giEntry = &sGetItemTable[-this->getItemId - 1];
+                EnBox* chest = (EnBox*)interactedActor;
 
+                // Failsafe blue rupee for unobtainable items
                 if (giEntry->itemId != ITEM_NONE) {
                     if (((Item_CheckObtainability(giEntry->itemId) == ITEM_NONE) && (giEntry->field & 0x40)) ||
                         ((Item_CheckObtainability(giEntry->itemId) != ITEM_NONE) && (giEntry->field & 0x20))) {
@@ -8215,6 +8245,7 @@ s32 Player_ActionHandler_GetItemLift(Player* this, PlayState* play) {
                     }
                 }
 
+                // Prepare and get in place for box opening
                 Player_SetupWaitForPutAway(play, this, Player_SetupGetItem);
                 this->stateFlags1 |= PLAYER_STATE1_GET_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_CUTSCENE;
                 Player_ObjectDMARequest(this, giEntry->objectId);
@@ -8225,6 +8256,7 @@ s32 Player_ActionHandler_GetItemLift(Player* this, PlayState* play) {
                 this->yaw = this->actor.shape.rot.y = chest->dyna.actor.shape.rot.y;
                 Player_ZeroXZNormalCamera(this);
 
+                // If major obtainable item special player animation and camera
                 if ((giEntry->itemId != ITEM_NONE) && (giEntry->gi >= 0) &&
                     (Item_CheckObtainability(giEntry->itemId) == ITEM_NONE)) {
                     Player_AnimPlayOnceAdjusted(play, this, this->ageProperties->unk_98);
@@ -8232,14 +8264,14 @@ s32 Player_ActionHandler_GetItemLift(Player* this, PlayState* play) {
                                              PLAYER_ANIM_MOVEMENT_RESET_BY_AGE | ANIM_FLAG_UPDATE_XZ |
                                                  ANIM_FLAG_UPDATE_Y | ANIM_FLAG_DISABLE_CHILD_ROOT_ADJUSTMENT |
                                                  ANIM_FLAG_ENABLE_MOVEMENT | ANIM_FLAG_OVERRIDE_MOVEMENT);
-                    chest->unk_1F4 = 1;
+                    chest->openingMajorItem = 1;
                     Camera_RequestSetting(Play_GetCamera(play, CAM_ID_MAIN), CAM_SET_SLOW_CHEST_CS);
                 } else {
                     Player_AnimPlayOnce(play, this, &gPlayerAnim_link_normal_box_kick);
-                    chest->unk_1F4 = -1;
+                    chest->openingMajorItem = -1;
                 }
 
-                return 1;
+                return true;
             }
 
             // Lifting (heavy block is in action handler 5)
@@ -8265,7 +8297,7 @@ s32 Player_ActionHandler_GetItemLift(Player* this, PlayState* play) {
                     // Silver rock without Silver Gauntlets
                     if ((interactedActor->id == ACTOR_EN_ISHI) && (PARAMS_GET_U(interactedActor->params, 0, 4) == 1) &&
                         (strength < PLAYER_STR_SILVER_G)) {
-                        return 0;
+                        return false;
                     }
 
                     Player_SetupWaitForPutAway(play, this, Player_SetupLiftActor);
@@ -8273,12 +8305,12 @@ s32 Player_ActionHandler_GetItemLift(Player* this, PlayState* play) {
 
                 Player_ZeroXZNormalCamera(this);
                 this->stateFlags1 |= PLAYER_STATE1_CARRYING_ACTOR;
-                return 1;
+                return true;
             }
         }
     }
 
-    return 0;
+    return false;
 }
 
 void Player_SetupThrowCarriedActor(Player* this, PlayState* play) {
@@ -8894,6 +8926,7 @@ void Player_BlendIdleFootAnim(PlayState* play, Player* this) {
 /**
  * Used to decide when to play footsteps depending on current frame of movement
  * animation and current speed
+ * @return true if stepping sfx should be played
  */
 s32 Player_ShouldPlaySteppingSfx(f32 moveFrame, f32 speed, f32 frameCount, f32 targetFrame) {
     f32 diff;
@@ -9957,6 +9990,9 @@ s32 Player_TryCrouchStab(Player* this, PlayState* play) {
     return false;
 }
 
+/**
+ * Try three different action handlers
+ */
 int func_80842964(Player* this, PlayState* play) {
     return Player_ActionHandler_13(this, play) || Player_ActionHandler_Talk(this, play) ||
            Player_ActionHandler_GetItemLift(this, play);
@@ -9999,10 +10035,10 @@ void Player_DecreaseStickUseNone(PlayState* play, Player* this) {
  */
 s32 Player_BreakDekuStick(PlayState* play, Player* this) {
     //! @bug Broken Deku Stick cannot break. Presumably leftover from earlier development.
-    if ((this->heldItemAction == PLAYER_IA_DEKU_STICK) && (this->unk_85C > 0.5f)) {
+    if ((this->heldItemAction == PLAYER_IA_DEKU_STICK) && (this->unk_85C.dekuStickLength > 0.5f)) {
         if (AMMO(ITEM_DEKU_STICK) != 0) {
             EffectSsStick_Spawn(play, &this->bodyPartsPos[PLAYER_BODYPART_R_HAND], this->actor.shape.rot.y + 0x8000);
-            this->unk_85C = 0.5f; // Half length stick
+            this->unk_85C.dekuStickLength = 0.5f; // Half length stick
             Player_DecreaseStickUseNone(play, this);
             Player_PlaySfx(this, NA_SE_IT_WOODSTICK_BROKEN);
         }
@@ -10341,7 +10377,7 @@ void Player_Action_ShieldBlock(Player* this, PlayState* play) {
         //! If the animation is interrupted by an action handler that sets a new action function without
         //! reseting meleeWeaponState, this results in damage ISG (rather, "block ISG").
         //! -- For instance, pressing C-up to enter first person on any interruptable frame but the last leads to
-        //! unk_6AD = 1 through Player_ActionHandler_0, which leads to entering first person action
+        //! unk_6AD = UNK6AD_FIRST_PERSON_UNARMED through Player_ActionHandler_0, which leads to entering first person action
         //! the next frame. (The first person camera is instantly removed because Player_RestoreHeldIA resets unk_6AD.)
         interruptResult = Player_TryActionInterrupt(play, this, &this->skelAnime, 4.0f);
 
@@ -10963,7 +10999,7 @@ s32 Player_ReleaseSpinAttack(Player* this, PlayState* play) {
         if (!CHECK_BTN_ALL(sControlInput->cur.button, BTN_B)) {
             s32 meleeWeaponAnimation;
 
-            if ((this->unk_858 >= 0.85f) || Player_CanSpinAttack(this)) {
+            if ((this->unk_858.spinAttackCharge >= 0.85f) || Player_CanSpinAttack(this)) {
                 meleeWeaponAnimation = sBigSpinAttack[Player_HoldsTwoHandedWeapon(this)];
             } else {
                 meleeWeaponAnimation = sSpinAttack[Player_HoldsTwoHandedWeapon(this)];
@@ -11012,11 +11048,11 @@ void Player_SetupSpinChargeNeutral(Player* this, PlayState* play) {
     Player_SetupAction(play, this, Player_Action_ChargeSpinAttackNeutral, 1);
     this->moveFrame = 0.0f;
     Player_AnimPlayLoop(play, this, D_80854360[Player_HoldsTwoHandedWeapon(this)]);
-    this->av2.actionVar2 = 1;
+    this->av2.hasStartedCharging = 1;
 }
 
 void Player_IncreaseSpinAttackCharge(Player* this) {
-    Math_StepToF(&this->unk_858, 1.0f, 0.02f);
+    Math_StepToF(&this->unk_858.spinAttackCharge, 1.0f, 0.02f);
 }
 
 void Player_Action_ChargeSpinAttackNeutral(Player* this, PlayState* play) {
@@ -11032,19 +11068,19 @@ void Player_Action_ChargeSpinAttackNeutral(Player* this, PlayState* play) {
         Player_SetParallel(this);
         this->stateFlags1 &= ~PLAYER_STATE1_PARALLEL;
         Player_AnimPlayLoop(play, this, D_80854360[Player_HoldsTwoHandedWeapon(this)]);
-        this->av2.actionVar2 = -1;
+        this->av2.hasStartedCharging = -1;
     }
 
     Player_DecelerateToZero(this);
 
     // Charging
-    if (!func_80842964(this, play) && (this->av2.actionVar2 != 0)) {
+    if (!func_80842964(this, play) && (this->av2.hasStartedCharging != 0)) {
         Player_IncreaseSpinAttackCharge(this);
 
-        if (this->av2.actionVar2 < 0) {
-            if (this->unk_858 >= 0.1f) { // If charged this much it's not possible to abort charging
+        if (this->av2.hasStartedCharging < 0) {
+            if (this->unk_858.spinAttackCharge >= 0.1f) { // If charged this much it's not possible to abort charging
                 this->tripleSlashCount = 0;
-                this->av2.actionVar2 = 1;
+                this->av2.hasStartedCharging = 1;
             } else if (!CHECK_BTN_ALL(sControlInput->cur.button, BTN_B)) {
                 Player_AbortSpinAttackCharge(this, play);
             }
@@ -11504,7 +11540,7 @@ void Player_Action_LiftActor(Player* this, PlayState* play) {
     }
 }
 
-static AnimSfxEntry D_8085461C[] = {
+static AnimSfxEntry sHeavyBlockLiftAnimSfx[] = {
     { NA_SE_VO_LI_SWORD_L, ANIMSFX_DATA(ANIMSFX_TYPE_VOICE, 49) },
     { NA_SE_VO_LI_SWORD_N, -ANIMSFX_DATA(ANIMSFX_TYPE_VOICE, 230) },
 };
@@ -11537,7 +11573,7 @@ void Player_Action_LiftHeavyBlock(Player* this, PlayState* play) {
         heldActor->minVelocityY = -30.0f;
         Player_DetachHeldActor(play, this);
     } else {
-        Player_ProcessAnimSfxList(this, D_8085461C);
+        Player_ProcessAnimSfxList(this, sHeavyBlockLiftAnimSfx);
     }
 }
 
@@ -11550,9 +11586,9 @@ void Player_Action_LiftSilverRock(Player* this, PlayState* play) {
     // Lifting finished, set flag
     if (LinkAnimation_Update(play, &this->skelAnime)) {
         Player_AnimPlayLoop(play, this, &gPlayerAnim_link_silver_wait);
-        this->av2.actionVar2 = 1;
-        // Lifting in progress
-    } else if (this->av2.actionVar2 == 0) {
+        this->av2.liftFinished = 1;
+    // Lifting in progress
+    } else if (this->av2.liftFinished == 0) {
         if (LinkAnimation_OnFrame(&this->skelAnime, 27.0f)) {
             Actor* interactRangeActor = this->interactRangeActor;
 
@@ -11562,7 +11598,7 @@ void Player_Action_LiftSilverRock(Player* this, PlayState* play) {
         } else if (LinkAnimation_OnFrame(&this->skelAnime, 25.0f)) {
             Player_PlayVoiceSfx(this, NA_SE_VO_LI_SWORD_L);
         }
-        // Lifting done, wait for throw
+    // Lifting done, wait for throw
     } else if (CHECK_BTN_ANY(sControlInput->press.button, BTN_A | BTN_B | BTN_CLEFT | BTN_CDOWN | BTN_CRIGHT)) {
         Player_SetupAction(play, this, Player_Action_ThrowSilverRock, 1);
         Player_AnimPlayOnce(play, this, &gPlayerAnim_link_silver_throw);
@@ -11598,14 +11634,14 @@ void Player_Action_LiftWithoutStrength(Player* this, PlayState* play) {
     // When start grab animation has finished
     if (LinkAnimation_Update(play, &this->skelAnime)) {
         Player_AnimPlayLoop(play, this, &gPlayerAnim_link_normal_nocarry_free_wait);
-        this->av2.actionVar2 = 15;
+        this->av2.liftFrameCount = 15;
         return;
     }
 
     // Then, play trying to lift animation for 15 frames
-    if (this->av2.actionVar2 != 0) {
-        this->av2.actionVar2--;
-        if (this->av2.actionVar2 == 0) {
+    if (this->av2.liftFrameCount != 0) {
+        this->av2.liftFrameCount--;
+        if (this->av2.liftFrameCount == 0) {
             Player_PlayAnimAndSetupIdle(this, &gPlayerAnim_link_normal_nocarry_free_end, play);
             this->stateFlags1 &= ~PLAYER_STATE1_CARRYING_ACTOR;
             Player_PlayVoiceSfx(this, NA_SE_VO_LI_DAMAGE_S);
@@ -11814,6 +11850,9 @@ void Player_StartMode_WarpSong(PlayState* play, Player* this) {
     this->stateFlags1 |= PLAYER_STATE1_CUTSCENE;
 }
 
+/**
+ * Spawns the magic spell actor when casting spell
+ */
 Actor* Player_SpawnMagicSpell(PlayState* play, Player* this, s32 spell) {
     static s16 sMagicSpellActorIds[] = { ACTOR_MAGIC_WIND, ACTOR_MAGIC_DARK, ACTOR_MAGIC_FIRE };
 
@@ -11831,7 +11870,7 @@ static InitChainEntry sInitChain[] = {
     ICHAIN_F32(lockOnArrowOffset, 500, ICHAIN_STOP),
 };
 
-static EffectBlureInit2 swordBlureParams = {
+static EffectBlureInit2 sSwordBlureParams = {
     0, 8, 0, { 255, 255, 255, 255 }, { 255, 255, 255, 64 }, { 255, 255, 255, 0 }, { 255, 255, 255, 0 }, 4,
     0, 2, 0, { 0, 0, 0, 0 },         { 0, 0, 0, 0 },
 };
@@ -11852,7 +11891,7 @@ void Player_InitCommon(Player* this, PlayState* play, FlexSkeletonHeader* skelHe
                        this->upperMorphTable, PLAYER_LIMB_MAX);
     this->upperSkelAnime.baseTransl = sSkeletonBaseTransl;
 
-    Effect_Add(play, &this->meleeWeaponEffectIndex, EFFECT_BLURE2, 0, 0, &swordBlureParams);
+    Effect_Add(play, &this->meleeWeaponEffectIndex, EFFECT_BLURE2, 0, 0, &sSwordBlureParams); // Sword trail
     ActorShape_Init(&this->actor.shape, 0.0f, ActorShadow_DrawFeet, this->ageProperties->unk_04);
     this->subCamId = CAM_ID_NONE;
 
@@ -12096,8 +12135,8 @@ void Player_UpdateInterface(PlayState* play, Player* this) {
         if (!Player_InBlockingCsMode(play, this)) {
             if (this->stateFlags1 & PLAYER_STATE1_FIRST_PERSON) {
                 doAction = DO_ACTION_RETURN;
-            } else if ((this->heldItemAction == PLAYER_IA_FISHING_POLE) && (this->unk_860 != 0)) {
-                if (this->unk_860 == 2) {
+            } else if ((this->heldItemAction == PLAYER_IA_FISHING_POLE) && (this->unk_860.fishingRodState != 0)) {
+                if (this->unk_860.fishingRodState == 2) {
                     doAction = DO_ACTION_REEL;
                 }
             } else if ((Player_Action_PlayOcarina != this->actionFunc) &&
@@ -12655,22 +12694,22 @@ static Color_RGBA8 D_808547C0 = { 255, 50, 0, 0 };
 void Player_UpdateBurningDekuStick(PlayState* play, Player* this) {
     f32 temp;
 
-    if (this->unk_85C == 0.0f) {
+    if (this->unk_85C.dekuStickLength == 0.0f) {
         Player_UseItem(play, this, ITEM_NONE);
         return;
     }
 
     temp = 1.0f;
-    if (DECR(this->unk_860) == 0) {
+    if (DECR(this->unk_860.dekuStickState) == 0) {
         Inventory_ChangeAmmo(ITEM_DEKU_STICK, -1);
-        this->unk_860 = 1;
+        this->unk_860.dekuStickState = 1;
         temp = 0.0f;
-        this->unk_85C = temp;
-    } else if (this->unk_860 > 200) {
-        temp = (210 - this->unk_860) / 10.0f;
-    } else if (this->unk_860 < 20) {
-        temp = this->unk_860 / 20.0f;
-        this->unk_85C = temp;
+        this->unk_85C.dekuStickLength = temp;
+    } else if (this->unk_860.dekuStickState > 200) {
+        temp = (210 - this->unk_860.dekuStickState) / 10.0f;
+    } else if (this->unk_860.dekuStickState < 20) {
+        temp = this->unk_860.dekuStickState / 20.0f;
+        this->unk_85C.dekuStickLength = temp;
     }
 
     func_8002836C(play, MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0]), &D_808547A4, &D_808547B0, &D_808547BC,
@@ -12921,10 +12960,10 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
 
     Player_UpdateZTargeting(this, play);
 
-    if ((this->heldItemAction == PLAYER_IA_DEKU_STICK) && (this->unk_860 != 0)) {
+    if ((this->heldItemAction == PLAYER_IA_DEKU_STICK) && (this->unk_860.dekuStickState != 0)) {
         Player_UpdateBurningDekuStick(play, this);
-    } else if ((this->heldItemAction == PLAYER_IA_FISHING_POLE) && (this->unk_860 < 0)) {
-        this->unk_860++;
+    } else if ((this->heldItemAction == PLAYER_IA_FISHING_POLE) && (this->unk_860.fishingRodState < 0)) {
+        this->unk_860.fishingRodState++;
     }
 
     if (this->bodyShockTimer != 0) {
@@ -13129,7 +13168,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
             } else {
                 if ((this->actor.parent == NULL) && ((play->transitionTrigger == TRANS_TRIGGER_START) ||
                                                      (this->postReviveFrames != 0) || !func_808382DC(this, play))) {
-                    func_8083AA10(this, play);
+                    Player_HandleLeavingGround(this, play);
                 } else {
                     this->fallStartHeight = this->actor.world.pos.y;
                 }
@@ -13156,7 +13195,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
         if (this->csAction != PLAYER_CSACTION_NONE) {
             if ((this->csAction != PLAYER_CSACTION_7) ||
                 !(this->stateFlags1 & (PLAYER_STATE1_HANGING | PLAYER_STATE1_CLIMB_JUMP_UP | PLAYER_STATE1_CLIMBING | PLAYER_STATE1_KNOCKBACK_FROZEN))) {
-                this->unk_6AD = 3;
+                this->unk_6AD = UNK6AD_CUTSCENE_CAMERA;
             } else if (Player_Action_CsAction != this->actionFunc) {
                 func_80852944(play, this, NULL);
             }
@@ -13498,7 +13537,7 @@ void Player_Draw(Actor* thisx, PlayState* play2) {
         func_8002EBCC(&this->actor, play, 0);
         func_8002ED80(&this->actor, play, 0);
 
-        if (this->unk_6AD != 0) {
+        if (this->unk_6AD != UNK6AD_NORMAL_CAMERA) {
             Vec3f projectedHeadPos;
 
             SkinMatrix_Vec3fMtxFMultXYZ(&play->viewProjectionMtxF, &this->actor.focus.pos, &projectedHeadPos);
@@ -13544,7 +13583,7 @@ void Player_Draw(Actor* thisx, PlayState* play2) {
         }
 
         if (this->stateFlags2 & PLAYER_STATE2_FROZEN) {
-            f32 scale = (this->av1.actionVar1 >> 1) * 22.0f;
+            f32 scale = (this->av1.iceScale >> 1) * 22.0f;
 
             gSPSegment(POLY_XLU_DISP++, 0x08,
                        Gfx_TwoTexScroll(play->state.gfxCtx, G_TX_RENDERTILE, 0, (0 - play->gameplayFrames) % 128, 32,
@@ -13729,27 +13768,27 @@ void Player_Action_InFirstPerson(Player* this, PlayState* play) {
 
     // If unk_6AD is 2, player is holding a Bow, Slingshot, Hookshot or Boomerang and is in first person.
     // This runs the upper action of the weapon for the weapon to work and upper animations to be played
-    if ((this->unk_6AD == 2) && (Player_IsHoldingRanged(this) || Player_IsHoldingBoomerang(this))) {
+    if ((this->unk_6AD == UNK6AD_FIRST_PERSON_ARMED) && (Player_IsHoldingRanged(this) || Player_IsHoldingBoomerang(this))) {
         Player_UpdateUpperBody(this, play);
     }
 
     // Various conditions that cancel a first person state:
     // General conditions (the call to Player_SetFirstPersonCamera is maintaining first person camera mode)
-    if ((this->csAction != PLAYER_CSACTION_NONE) || (this->unk_6AD == 0) || (this->unk_6AD >= 4) ||
+    if ((this->csAction != PLAYER_CSACTION_NONE) || (this->unk_6AD == UNK6AD_NORMAL_CAMERA) || (this->unk_6AD >= 4) ||
         Player_UpdateHostileLockOn(this) || (this->focusActor != NULL) ||
         (Player_SetFirstPersonCamera(play, this) == CAM_MODE_NORMAL) ||
         // If holding a first person weapon
-        (((this->unk_6AD == 2) &&
+        (((this->unk_6AD == UNK6AD_FIRST_PERSON_ARMED) &&
           (CHECK_BTN_ANY(sControlInput->press.button, BTN_A | BTN_B | BTN_R) || Player_FriendlyLockOnOrParallel(this) ||
            (!Player_IsAimingRanged(this) && !Player_IsAimingBoomerang(this)))) ||
          // If not holding a first person weapon
-         ((this->unk_6AD == 1) &&
+         ((this->unk_6AD == UNK6AD_FIRST_PERSON_UNARMED) &&
           CHECK_BTN_ANY(sControlInput->press.button,
                         BTN_A | BTN_B | BTN_R | BTN_CUP | BTN_CDOWN | BTN_CLEFT | BTN_CRIGHT)))) {
         // Set next action among other things
         Player_ExitCutsceneFirstPerson(this, play);
         Sfx_PlaySfxCentered(NA_SE_SY_CAMERA_ZOOM_UP);
-    } else if ((DECR(this->av2.actionVar2) == 0) || (this->unk_6AD != 2)) {
+    } else if ((DECR(this->av2.actionVar2) == 0) || (this->unk_6AD != UNK6AD_FIRST_PERSON_ARMED)) {
         if (Player_HasFiredHookshot(this)) {
             this->unk_6AE_rotFlags |= UNK6AE_ROT_FOCUS_X | UNK6AE_ROT_FOCUS_Y | UNK6AE_ROT_UPPER_X;
         } else {
@@ -13798,7 +13837,7 @@ s32 Player_StartOcarinaGame(PlayState* play, Player* this) {
     if (this->stateFlags3 & PLAYER_STATE3_OCARINA_GAME) {
         this->stateFlags3 &= ~PLAYER_STATE3_OCARINA_GAME;
         Player_GetOcarinaModel(this);
-        this->unk_6AD = 4;
+        this->unk_6AD = UNK6AD_CS_ITEM_CAMERA;
         Player_ActionHandler_13(this, play);
         return true;
     }
@@ -14120,7 +14159,7 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
     this->stateFlags2 |= PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT;
 
     // If not ladder
-    if ((this->av1.actionVar1 != 0) && (ABS(inputY) < ABS(inputX))) {
+    if ((this->av1.isClimbWall != 0) && (ABS(inputY) < ABS(inputX))) {
         speed = ABS(inputX) * 0.0325f;
         inputY = 0;
     } else {
@@ -14169,7 +14208,7 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
             if (inputY != 0) {
                 f32 wallHeight;
 
-                sp68 = this->av1.actionVar1 + this->av2.actionVar2;
+                sp68 = this->av1.isClimbWall + this->av2.actionVar2;
 
                 if (inputY > 0) { // Direction up
                     D_8085488C.y = this->ageProperties->unk_40;
@@ -14177,7 +14216,7 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
 
                     // Dismount up from climb
                     if (this->actor.world.pos.y < wallHeight) {
-                        if (this->av1.actionVar1 != 0) { // Regular wall
+                        if (this->av1.isClimbWall != 0) { // Regular wall
                             this->actor.world.pos.y = wallHeight;
                             this->stateFlags1 &= ~PLAYER_STATE1_CLIMBING;
                             Player_SetupHanging(play, this, this->actor.wallPoly, this->ageProperties->unk_3C,
@@ -14196,7 +14235,7 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
                 } else { // Direction down
                     // Dismount down from climb
                     if ((this->actor.world.pos.y - this->actor.floorHeight) < 15.0f) {
-                        if (this->av1.actionVar1 != 0) { // Regular wall
+                        if (this->av1.isClimbWall != 0) { // Regular wall
                             Player_SetupNotOnGroundFromClimb(this, play);
                         } else { // Ladder
                             if (this->av2.actionVar2 != 0) {
@@ -14217,7 +14256,7 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
             
             } else {
                 // Direction sideways
-                if ((this->av1.actionVar1 != 0) && (inputX != 0)) {
+                if ((this->av1.isClimbWall != 0) && (inputX != 0)) {
                     anim2 = this->ageProperties->sideClimbAnim[this->av2.actionVar2];
 
                     if (inputX > 0) { // Right
@@ -14604,7 +14643,7 @@ void Player_Action_HorseRiding(Player* this, PlayState* play) {
         if (this->csAction == PLAYER_CSACTION_7) {
             this->csAction = PLAYER_CSACTION_NONE;
         }
-        this->unk_6AD = 0;
+        this->unk_6AD = UNK6AD_NORMAL_CAMERA;
         this->av1.actionVar1 = 0;
     } else if ((this->av2.actionVar2 < 2) || (this->av2.actionVar2 >= 4)) {
         sUpperBodyIsBusy = Player_UpdateUpperBody(this, play);
@@ -14670,7 +14709,7 @@ void Player_Action_HorseRiding(Player* this, PlayState* play) {
             // Set unk_6AD to 0 and remove the first person player state
             if ((Player_SetFirstPersonCamera(play, this) == CAM_MODE_NORMAL) ||
                 CHECK_BTN_ANY(sControlInput->press.button, BTN_A) || Player_IsZTargeting(this)) {
-                this->unk_6AD = 0;
+                this->unk_6AD = UNK6AD_NORMAL_CAMERA;
                 this->stateFlags1 &= ~PLAYER_STATE1_FIRST_PERSON;
             } else {
                 this->upperLimbRot.y = func_8084ABD8(play, this, true, -5000) - this->actor.shape.rot.y;
@@ -14774,8 +14813,8 @@ void Player_Action_WaterIdle(Player* this, PlayState* play) {
         s16 yawTarget;
 
         // Set camera flag zero, unless player is in first person without weapon
-        if (this->unk_6AD != 1) {
-            this->unk_6AD = 0;
+        if (this->unk_6AD != UNK6AD_FIRST_PERSON_UNARMED) {
+            this->unk_6AD = UNK6AD_NORMAL_CAMERA;
         }
 
         // If sinking with Iron Boots we cannot change speed or direction.
@@ -15019,23 +15058,30 @@ void Player_SetupIdleFromGetItem(PlayState* play, Player* this) {
     Player_SetupIdlePlayOnce(this, play);
     this->yaw = this->actor.shape.rot.y;
 }
-
+/**
+ * Display textbox when receiving an item, give the actual item, and sound effect.
+ * Runs 3 times for chests: Display textbox + sfx + set actionVar1, set id to 0, then return true.
+ * @return false until all steps of the function have run, then true
+ */
 s32 Player_GetItemTextboxSfx(PlayState* play, Player* this) {
     GetItemEntry* giEntry;
     s32 sfx;
     s32 sfx2;
 
+    // Get item sequence is finished (GI_NONE set near end of this function)
     if (this->getItemId == GI_NONE) {
-        return 1;
+        return true;
     }
 
-    if (this->av1.actionVar1 == 0) {
+    if (this->av1.messageItemSfxDone == 0) {
         giEntry = &sGetItemTable[this->getItemId - 1];
-        this->av1.actionVar1 = 1;
+        this->av1.messageItemSfxDone = 1;
 
+        // Textbox + getting the item
         Message_StartTextbox(play, giEntry->textId, &this->actor);
         Item_Give(play, giEntry->itemId);
 
+        // Sound effect
         if (((this->getItemId >= GI_RUPEE_GREEN) && (this->getItemId <= GI_RUPEE_RED)) ||
             ((this->getItemId >= GI_RUPEE_PURPLE) && (this->getItemId <= GI_RUPEE_GOLD)) ||
             ((this->getItemId >= GI_RUPEE_GREEN_LOSE) && (this->getItemId <= GI_RUPEE_PURPLE_LOSE)) ||
@@ -15066,7 +15112,7 @@ s32 Player_GetItemTextboxSfx(PlayState* play, Player* this) {
         }
     }
 
-    return 0;
+    return false;
 }
 
 void Player_Action_DiveFinish(Player* this, PlayState* play) {
@@ -15353,9 +15399,12 @@ void Player_Action_TimeTravelEnd(Player* this, PlayState* play) {
     }
 }
 
+/**
+ * Handle animation and sfx for drinking from bottle, as well as gameplay effects
+ */
 void Player_Action_DrinkBottle(Player* this, PlayState* play) {
     if (LinkAnimation_Update(play, &this->skelAnime)) {
-        if (this->av2.actionVar2 == 0) {
+        if (this->av2.drinkPhase == 0) {
             static u8 sDrinkEffects[] = {
                 1, 3, 2, 4, 4, // Red, Blue, Green, Full Milk, Milk
             };
@@ -15393,19 +15442,20 @@ void Player_Action_DrinkBottle(Player* this, PlayState* play) {
             }
 
             Player_AnimPlayLoopAdjusted(play, this, &gPlayerAnim_link_bottle_drink_demo_wait);
-            this->av2.actionVar2 = 1;
+            this->av2.drinkPhase = 1;
         } else {
+            // Finished drinking, exit drink action
             Player_SetupIdlePlayOnce(this, play);
             Camera_SetFinishedFlag(Play_GetCamera(play, CAM_ID_MAIN));
         }
-    } else if (this->av2.actionVar2 == 1) {
+    } else if (this->av2.drinkPhase == 1) {
         if ((gSaveContext.healthAccumulator == 0) && (gSaveContext.magicState != MAGIC_STATE_FILL)) {
             Player_AnimChangeOnceMorphAdjusted(play, this, &gPlayerAnim_link_bottle_drink_demo_end);
-            this->av2.actionVar2 = 2;
+            this->av2.drinkPhase = 2;
             Player_UpdateBottleHeld(play, this, ITEM_BOTTLE_EMPTY, PLAYER_IA_BOTTLE);
         }
         Player_PlayVoiceSfx(this, NA_SE_VO_LI_DRINK - SFX_FLAG);
-    } else if ((this->av2.actionVar2 == 2) && LinkAnimation_OnFrame(&this->skelAnime, 29.0f)) {
+    } else if ((this->av2.drinkPhase == 2) && LinkAnimation_OnFrame(&this->skelAnime, 29.0f)) {
         Player_PlayVoiceSfx(this, NA_SE_VO_LI_BREATH_DRINK);
     }
 }
@@ -15808,7 +15858,7 @@ void Player_Action_ExitGrotto(Player* this, PlayState* play) {
 
 void Player_Action_ShootingGallery(Player* this, PlayState* play) {
     // Set first person with ranged weapon
-    this->unk_6AD = 2;
+    this->unk_6AD = UNK6AD_FIRST_PERSON_ARMED;
 
     // Set camera for first person aiming
     Player_SetFirstPersonCamera(play, this);
@@ -15978,14 +16028,14 @@ s32 Player_UpdateNoclip(Player* this, PlayState* play) {
  * it bounce after firing an arrow/seed.
  */
 void Player_StringReboundCalculation(Player* this) {
-    this->unk_858 += this->unk_85C;
-    this->unk_85C -= this->unk_858 * 5.0f;
-    this->unk_85C *= 0.3f;
+    this->unk_858.stringReboundVar1 += this->unk_85C.stringReboundVar2;
+    this->unk_85C.stringReboundVar2 -= this->unk_858.stringReboundVar1 * 5.0f;
+    this->unk_85C.stringReboundVar2 *= 0.3f;
 
-    if (ABS(this->unk_85C) < 0.00001f) {
-        this->unk_85C = 0.0f;
-        if (ABS(this->unk_858) < 0.00001f) {
-            this->unk_858 = 0.0f;
+    if (ABS(this->unk_85C.stringReboundVar2) < 0.00001f) {
+        this->unk_85C.stringReboundVar2 = 0.0f;
+        if (ABS(this->unk_858.stringReboundVar1) < 0.00001f) {
+            this->unk_858.stringReboundVar1 = 0.0f;
         }
     }
 }
@@ -16248,7 +16298,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
     if (LinkAnimation_Update(play, &this->skelAnime)) {
 
         // 3) When finished, castedSpell has been set to -1 = exit action
-        if (this->av1.castedSpell < 0) {
+        if (this->av1.castedSpell < MAGIC_SPELL_FARORE) {
             if ((this->itemAction == PLAYER_IA_NAYRUS_LOVE) || (gSaveContext.magicState == MAGIC_STATE_IDLE)) {
                 Player_SetupIdleDependingOnTargetKeepAnim(this, play);
                 Camera_SetFinishedFlag(Play_GetCamera(play, CAM_ID_MAIN));
@@ -16263,7 +16313,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
 
                 if (Player_SpawnMagicSpell(play, this, this->av1.castedSpell) != NULL) {
                     this->stateFlags1 |= PLAYER_STATE1_28 | PLAYER_STATE1_CUTSCENE;
-                    if ((this->av1.castedSpell != 0) || (gSaveContext.respawn[RESPAWN_MODE_TOP].data <= 0)) {
+                    if ((this->av1.castedSpell != MAGIC_SPELL_FARORE) || (gSaveContext.respawn[RESPAWN_MODE_TOP].data <= 0)) {
                         gSaveContext.magicState = MAGIC_STATE_CONSUME_SETUP;
                     }
                 } else {
@@ -16279,7 +16329,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 // Minor note: Thus Farore consumes magic in 0) above, but the actual spell effect
                 // of setting a respawn point in 2) below is slightly delayed. If spellcast can be interrupted
                 // during these frames, player loses magic points without getting spell effect.
-                if (this->av1.castedSpell == 0) {
+                if (this->av1.castedSpell == MAGIC_SPELL_FARORE) {
                     this->av2.castPhase = -10;
                 }
             }
@@ -16310,7 +16360,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
             }
 
         // 0), 1) and 2)
-        } else if (this->av1.castedSpell >= 0) {
+        } else if (this->av1.castedSpell >= MAGIC_SPELL_FARORE) {
             // 0) Sfx for general start cast animation
             if (this->av2.castPhase == 0) {
                 static AnimSfxEntry D_80854A80[] = {
@@ -16339,7 +16389,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
 
                 Player_ProcessAnimSfxList(this, D_80854A8C[this->av1.castedSpell]);
                 // Dins only: Let go of cutscene state slightly before action end
-                if ((this->av1.castedSpell == 2) && LinkAnimation_OnFrame(&this->skelAnime, 30.0f)) {
+                if ((this->av1.castedSpell == MAGIC_SPELL_DIN) && LinkAnimation_OnFrame(&this->skelAnime, 30.0f)) {
                     this->stateFlags1 &= ~(PLAYER_STATE1_28 | PLAYER_STATE1_CUTSCENE);
                 }
             // 2) Increment castPhase until higher than spell cast length. Then enter next phase by starting
@@ -16348,7 +16398,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
                 LinkAnimation_PlayOnceSetSpeed(play, &this->skelAnime, sMagicSpellCastFinish[this->av1.castedSpell],
                                                0.83f);
                 this->yaw = this->actor.shape.rot.y;
-                this->av1.castedSpell = -1;
+                this->av1.castedSpell = MAGIC_SPELL_CAST_FINISH;
             }
         }
     }
@@ -16401,7 +16451,7 @@ void Player_Action_HookshotFly(Player* this, PlayState* play) {
  * Fishing during cast and reel phase. @see z_fishing.c
  */
 void Player_Action_FishingCastReel(Player* this, PlayState* play) {
-    if ((this->av2.actionVar2 != 0) && ((this->unk_858 != 0.0f) || (this->unk_85C != 0.0f))) {
+    if ((this->av2.actionVar2 != 0) && ((this->unk_858.fishingVar1 != 0.0f) || (this->unk_85C.fishingVar2 != 0.0f))) {
         // 144-byte buffer, declared as a u64 array for 8-byte alignment. LinkAnimation_BlendToMorph will round up
         // the buffer address to the nearest 16-byte alignment before passing it to AnimTaskQueue_AddLoadPlayerFrame,
         // and AnimTaskQueue_AddLoadPlayerFrame requires space for `sizeof(Vec3s) * limbCount + 2` bytes. Link's
@@ -16416,25 +16466,25 @@ void Player_Action_FishingCastReel(Player* this, PlayState* play) {
         }
 
         LinkAnimation_BlendToJoint(play, &this->skelAnime, &gPlayerAnim_link_fishing_wait, this->skelAnime.curFrame,
-                                   (this->unk_858 < 0.0f) ? &gPlayerAnim_link_fishing_reel_left
+                                   (this->unk_858.fishingVar1 < 0.0f) ? &gPlayerAnim_link_fishing_reel_left
                                                           : &gPlayerAnim_link_fishing_reel_right,
-                                   5.0f, fabsf(this->unk_858), this->blendTable);
+                                   5.0f, fabsf(this->unk_858.fishingVar1), this->blendTable);
         LinkAnimation_BlendToMorph(play, &this->skelAnime, &gPlayerAnim_link_fishing_wait, this->skelAnime.curFrame,
-                                   (this->unk_85C < 0.0f) ? &gPlayerAnim_link_fishing_reel_up
+                                   (this->unk_85C.fishingVar2 < 0.0f) ? &gPlayerAnim_link_fishing_reel_up
                                                           : &gPlayerAnim_link_fishing_reel_down,
-                                   5.0f, fabsf(this->unk_85C), (Vec3s*)D_80858AD8);
+                                   5.0f, fabsf(this->unk_85C.fishingVar2), (Vec3s*)D_80858AD8);
         LinkAnimation_InterpJointMorph(play, &this->skelAnime, 0.5f);
     } else if (LinkAnimation_Update(play, &this->skelAnime)) {
-        this->unk_860 = 2; // Can start reeling (even if not landed yet)
+        this->unk_860.fishingRodState = 2; // Can start reeling (even if not landed yet)
         Player_AnimPlayLoop(play, this, &gPlayerAnim_link_fishing_wait);
         this->av2.actionVar2 = 1;
     }
 
     Player_DecelerateToZero(this);
 
-    if (this->unk_860 == 0) { // no catch
+    if (this->unk_860.fishingRodState == 0) { // no catch
         Player_SetupIdleOnceMorph(this, play);
-    } else if (this->unk_860 == 3) { // catch
+    } else if (this->unk_860.fishingRodState == 3) { // catch
         Player_SetupAction(play, this, Player_Action_FishingHoldingCatch, 0);
         Player_AnimChangeOnceMorph(play, this, &gPlayerAnim_link_fishing_fish_catch);
     }
@@ -16444,7 +16494,7 @@ void Player_Action_FishingCastReel(Player* this, PlayState* play) {
  * Successful catch, deciding whether to keep
  */
 void Player_Action_FishingHoldingCatch(Player* this, PlayState* play) {
-    if (LinkAnimation_Update(play, &this->skelAnime) && (this->unk_860 == 0)) {
+    if (LinkAnimation_Update(play, &this->skelAnime) && (this->unk_860.fishingRodState == 0)) {
         Player_PlayAnimAndSetupIdle(this, &gPlayerAnim_link_fishing_fish_catch_end, play);
     }
 }
@@ -17439,7 +17489,7 @@ void func_80852944(PlayState* play, Player* this, CsCmdActorCue* cue) {
     }
 
     this->csAction = PLAYER_CSACTION_NONE;
-    this->unk_6AD = 0;
+    this->unk_6AD = UNK6AD_NORMAL_CAMERA;
 }
 
 void func_808529D0(PlayState* play, Player* this, CsCmdActorCue* cue) {
@@ -17656,12 +17706,12 @@ void Player_StartTalking(PlayState* play, Actor* actor) {
         }
 
         if (this->stateFlags1 & PLAYER_STATE1_RIDING) {
-            s32 sp24 = this->av2.actionVar2;
+            s32 saveAv2 = this->av2.actionVar2;
 
             Player_PutAwayHeldItem(play, this);
             Player_SetupTalk(play, this);
 
-            this->av2.actionVar2 = sp24;
+            this->av2.actionVar2 = saveAv2;
         } else {
             if (Player_SwimmingWithoutIronBoots(this)) {
                 Player_SetupWaitForPutAway(play, this, Player_SetupTalk);

@@ -44,7 +44,7 @@ typedef struct EnBox {
     /* 0x01B4 */ EnBoxActionFunc actionFunc;
     /* 0x01B8 */ Vec3s jointTable[5];
     /* 0x01D6 */ Vec3s morphTable[5];
-    /* 0x01F4 */ s16 unk_1F4; // probably a frame count? set by player code
+    /* 0x01F4 */ s16 openingMajorItem; // Signal from player that the opening has started and frame counter. 1 = contains major item (special opening anim), -1 = regular item
     /* 0x01F6 */ u8 movementFlags;
     /* 0x01F7 */ u8 alpha;
     /* 0x01F8 */ u8 switchFlag;

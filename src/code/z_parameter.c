@@ -1773,8 +1773,8 @@ u8 Item_Give(PlayState* play, u8 item) {
 
         Magic_RequestChange(play, 12, MAGIC_ADD);
 
-        if (!GET_INFTABLE(INFTABLE_198)) {
-            SET_INFTABLE(INFTABLE_198);
+        if (!GET_INFTABLE(INFTABLE_PICKED_UP_MAGIC_JAR)) {
+            SET_INFTABLE(INFTABLE_PICKED_UP_MAGIC_JAR);
             return ITEM_NONE;
         }
 
@@ -1793,8 +1793,8 @@ u8 Item_Give(PlayState* play, u8 item) {
 
         Magic_RequestChange(play, 24, MAGIC_ADD);
 
-        if (!GET_INFTABLE(INFTABLE_198)) {
-            SET_INFTABLE(INFTABLE_198);
+        if (!GET_INFTABLE(INFTABLE_PICKED_UP_MAGIC_JAR)) {
+            SET_INFTABLE(INFTABLE_PICKED_UP_MAGIC_JAR);
             return ITEM_NONE;
         }
 
@@ -1886,6 +1886,9 @@ u8 Item_Give(PlayState* play, u8 item) {
     return temp;
 }
 
+/*
+ * @return 0xFF (ITEM_NONE)
+ */
 u8 Item_CheckObtainability(u8 item) {
     s16 i;
     s16 slot = SLOT(item);
@@ -1975,8 +1978,8 @@ u8 Item_CheckObtainability(u8 item) {
         return ITEM_RECOVERY_HEART;
     } else if ((item == ITEM_MAGIC_JAR_SMALL) || (item == ITEM_MAGIC_JAR_BIG)) {
         PRINTF(T("魔法の壷 Get_Inf_Table( 25, 0x0100)=%d\n", "Magic Pot Get_Inf_Table( 25, 0x0100)=%d\n"),
-               GET_INFTABLE(INFTABLE_198));
-        if (!GET_INFTABLE(INFTABLE_198)) {
+               GET_INFTABLE(INFTABLE_PICKED_UP_MAGIC_JAR));
+        if (!GET_INFTABLE(INFTABLE_PICKED_UP_MAGIC_JAR)) {
             return ITEM_NONE;
         } else {
             return item;

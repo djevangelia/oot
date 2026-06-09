@@ -2025,25 +2025,25 @@ void Fishing_DrawRod(PlayState* play2) {
             D_80B7A6B4 = 0.0f;
         }
 
-        lureXZLen = player->unk_85C;
-        Math_SmoothStepToF(&player->unk_85C, input->rel.stick_y * 0.02f, 0.3f, 5.0f, 0.0f);
-        lureXZLen = player->unk_85C - lureXZLen;
+        lureXZLen = player->unk_85C.fishingVar2;
+        Math_SmoothStepToF(&player->unk_85C.fishingVar2, input->rel.stick_y * 0.02f, 0.3f, 5.0f, 0.0f);
+        lureXZLen = player->unk_85C.fishingVar2 - lureXZLen;
 
-        spC4 = player->unk_858;
-        Math_SmoothStepToF(&player->unk_858, input->rel.stick_x * 0.02f, 0.3f, 5.0f, 0.0f);
-        spC4 = player->unk_858 - spC4;
+        spC4 = player->unk_858.fishingVar1;
+        Math_SmoothStepToF(&player->unk_858.fishingVar1, input->rel.stick_x * 0.02f, 0.3f, 5.0f, 0.0f);
+        spC4 = player->unk_858.fishingVar1 - spC4;
 
-        if (player->unk_858 > 1.0f) {
-            player->unk_858 = 1.0f;
+        if (player->unk_858.fishingVar1 > 1.0f) {
+            player->unk_858.fishingVar1 = 1.0f;
         }
-        if (player->unk_85C > 1.0f) {
-            player->unk_85C = 1.0f;
+        if (player->unk_85C.fishingVar2 > 1.0f) {
+            player->unk_85C.fishingVar2 = 1.0f;
         }
-        if (player->unk_858 < -1.0f) {
-            player->unk_858 = -1.0f;
+        if (player->unk_858.fishingVar1 < -1.0f) {
+            player->unk_858.fishingVar1 = -1.0f;
         }
-        if (player->unk_85C < -1.0f) {
-            player->unk_85C = -1.0f;
+        if (player->unk_85C.fishingVar2 < -1.0f) {
+            player->unk_85C.fishingVar2 = -1.0f;
         }
 
         Math_ApproachF(&sRodBendRotY, spC4 * 70.0f * -0.01f, 1.0f, D_80B7A6B0);
@@ -2052,8 +2052,8 @@ void Fishing_DrawRod(PlayState* play2) {
         Math_ApproachF(&D_80B7A6B4, 1.0f, 1.0f, 0.1f);
         Math_ApproachZeroF(&D_80B7A6B8, 1.0f, 0.05f);
     } else {
-        Math_ApproachZeroF(&player->unk_85C, 1.0f, 0.1f);
-        Math_ApproachZeroF(&player->unk_858, 1.0f, 0.1f);
+        Math_ApproachZeroF(&player->unk_85C.fishingVar2, 1.0f, 0.1f);
+        Math_ApproachZeroF(&player->unk_858.fishingVar1, 1.0f, 0.1f);
         Math_ApproachF(&D_80B7A6AC, (Math_SinS(sLureTimer * 3000) * 0.025f) + -0.03f, 1.0f, 0.05f);
         Math_ApproachZeroF(&sRodBendRotY, 1.0f, 0.05f);
 
@@ -2085,11 +2085,11 @@ void Fishing_DrawRod(PlayState* play2) {
     }
 
     Matrix_RotateX(-M_PI / 5.0000003f, MTXMODE_APPLY);
-    Matrix_RotateZ((player->unk_858 * 0.5f) + 3.0f * M_PI / 20.0f, MTXMODE_APPLY);
+    Matrix_RotateZ((player->unk_858.fishingVar1 * 0.5f) + 3.0f * M_PI / 20.0f, MTXMODE_APPLY);
     Matrix_RotateX((D_80B7A6C0 + 20.0f) * 0.01f * M_PI, MTXMODE_APPLY);
     Matrix_Scale(0.70000005f, 0.70000005f, 0.70000005f, MTXMODE_APPLY);
 
-    spC0 = D_80B7A6AC + D_80B7A6B8 + (D_80B7A6BC * ((((*player).unk_85C - 1.0f) * -0.25f) + 0.5f));
+    spC0 = D_80B7A6AC + D_80B7A6B8 + (D_80B7A6BC * ((((*player).unk_85C.fishingVar2 - 1.0f) * -0.25f) + 0.5f));
 
     Matrix_Translate(0.0f, 0.0f, -1300.0f, MTXMODE_APPLY);
 
@@ -2234,11 +2234,11 @@ void Fishing_UpdateLure(Fishing* this, PlayState* play) {
 
             if (player->stateFlags1 & PLAYER_STATE1_IN_WATER) {
                 sRodCastTimer = 0;
-                player->unk_860 = 0;
+                player->unk_860.fishingRodState = 0;
             }
 
             if (sRodCastTimer == 0) {
-                if ((D_80B7E0B0 == 0) && (player->unk_860 == 1)) {
+                if ((D_80B7E0B0 == 0) && (player->unk_860.fishingRodState == 1)) {
                     sRodCastTimer = 37;
                     Message_CloseTextbox(play);
                 }
@@ -2422,7 +2422,7 @@ void Fishing_UpdateLure(Fishing* this, PlayState* play) {
                 sIsOwnersHatSunk = true;
             }
 
-            player->unk_860 = 2;
+            player->unk_860.fishingRodState = 2;
 
             if (sLureWigglePosY < 3.0f) {
                 lureXZLen = Math_SinS(sLureTimer * 0x1060) * sLureRotXTarget;
@@ -3890,7 +3890,7 @@ void Fishing_UpdateFish(Actor* thisx, PlayState* play2) {
             } else if (this->actor.xzDistToPlayer < (KREG_DEBUG(59) + 50.0f)) {
                 this->fishState = 6;
                 this->timerArray[0] = 100;
-                player->unk_860 = 3;
+                player->unk_860.fishingRodState = 3;
                 Rumble_Override(0.0f, 1, 3, 1);
                 sFishesCaught++;
                 Cutscene_StartManual(play, &play->csCtx);
@@ -5432,7 +5432,7 @@ void Fishing_UpdateOwner(Actor* thisx, PlayState* play2) {
             sSubCamId = SUB_CAM_ID_DONE;
             Environment_EnableUnderwaterLights(play, 0);
             play->envCtx.adjFogNear = 0;
-            player->unk_860 = -5;
+            player->unk_860.fishingRodState = -5;
             D_80B7E0B0 = 5;
             break;
 
@@ -5572,7 +5572,7 @@ void Fishing_UpdateOwner(Actor* thisx, PlayState* play2) {
                         sFishingPlayerCinematicState = 0;
 
                         sSubCamId = SUB_CAM_ID_DONE;
-                        player->unk_860 = -5;
+                        player->unk_860.fishingRodState = -5;
                         D_80B7E0B0 = 5;
                         sSinkingLureFound = false;
                         sFishingMusicDelay = 20;

@@ -416,13 +416,13 @@ void EnBox_WaitOpen(EnBox* this, PlayState* play) {
 
     this->alpha = 255;
     this->movementFlags |= ENBOX_MOVE_IMMOBILE;
-    if (this->unk_1F4 != 0) { // unk_1F4 is modified by player code
+    if (this->openingMajorItem != 0) { // Set to 1 (major item) or -1 (regular item) by player when opening starts
         linkAge = gSaveContext.save.linkAge;
-        anim = sAnimations[(this->unk_1F4 < 0 ? 2 : 0) + linkAge];
+        anim = sAnimations[(this->openingMajorItem < 0 ? 2 : 0) + linkAge];
         frameCount = Animation_GetLastFrame(anim);
         Animation_Change(&this->skelanime, anim, 1.5f, 0, frameCount, ANIMMODE_ONCE, 0.0f);
         EnBox_SetupAction(this, EnBox_Open);
-        if (this->unk_1F4 > 0) {
+        if (this->openingMajorItem > 0) {
             switch (this->type) {
                 case ENBOX_TYPE_SMALL:
                 case ENBOX_TYPE_6:
@@ -461,15 +461,15 @@ void EnBox_Open(EnBox* this, PlayState* play) {
     this->dyna.actor.flags &= ~ACTOR_FLAG_REACT_TO_LENS;
 
     if (SkelAnime_Update(&this->skelanime)) {
-        if (this->unk_1F4 > 0) {
-            if (this->unk_1F4 < 120) {
-                this->unk_1F4++;
+        if (this->openingMajorItem > 0) {
+            if (this->openingMajorItem < 120) {
+                this->openingMajorItem++;
             } else {
                 Math_StepToF(&this->unk_1B0, 0.0f, 0.05f);
             }
         } else {
-            if (this->unk_1F4 > -120) {
-                this->unk_1F4--;
+            if (this->openingMajorItem > -120) {
+                this->openingMajorItem--;
             } else {
                 Math_StepToF(&this->unk_1B0, 0.0f, 0.05f);
             }

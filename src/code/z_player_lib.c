@@ -820,7 +820,7 @@ int Player_IsBurningStickInRange(PlayState* play, Vec3f* pos, f32 xzRange, f32 y
     Vec3f diff;
     s32 pad;
 
-    if ((this->heldItemAction == PLAYER_IA_DEKU_STICK) && (this->unk_860 != 0)) {
+    if ((this->heldItemAction == PLAYER_IA_DEKU_STICK) && (this->unk_860.dekuStickState != 0)) {
         Math_Vec3f_Diff(MELEE_WEAPON_INFO_TIP(&this->meleeWeaponInfo[0]), pos, &diff);
         return ((SQ(diff.x) + SQ(diff.z)) <= SQ(xzRange)) && (0.0f <= diff.y) && (diff.y <= yRange);
     } else {
@@ -1694,7 +1694,7 @@ void Player_PostLimbDrawGameplay(PlayState* play, s32 limbIndex, Gfx** dList, Ve
             OPEN_DISPS(play->state.gfxCtx, "../z_player_lib.c", 2633);
 
             if (this->actor.scale.y >= 0.0f) {
-                sMeleeWeaponTipOffsetFromLeftHand0.x = this->unk_85C * 5000.0f;
+                sMeleeWeaponTipOffsetFromLeftHand0.x = this->unk_85C.dekuStickLength * 5000.0f;
                 Player_CalcMeleeWeaponTipPositions(this, tipPositions);
                 if (this->meleeWeaponState != 0) {
                     Player_UpdateMeleeWeaponInfo(play, this, tipPositions);
@@ -1705,7 +1705,7 @@ void Player_PostLimbDrawGameplay(PlayState* play, s32 limbIndex, Gfx** dList, Ve
 
             Matrix_Translate(-428.26f, 267.2f, -33.82f, MTXMODE_APPLY);
             Matrix_RotateZYX(-0x8000, 0, 0x4000, MTXMODE_APPLY);
-            Matrix_Scale(1.0f, this->unk_85C, 1.0f, MTXMODE_APPLY);
+            Matrix_Scale(1.0f, this->unk_85C.dekuStickLength, 1.0f, MTXMODE_APPLY);
 
             MATRIX_FINALIZE_AND_LOAD(POLY_OPA_DISP++, play->state.gfxCtx, "../z_player_lib.c", 2653);
             gSPDisplayList(POLY_OPA_DISP++, gLinkChildLinkDekuStickDL);
@@ -1792,12 +1792,12 @@ void Player_PostLimbDrawGameplay(PlayState* play, s32 limbIndex, Gfx** dList, Ve
             // - When spawning arrow/seed in Player_Ranged_LoadWeapon, rangedAimingOrLoaded is set to 14 and reduced by
             // 1 each frame. Presumably this is to delay drawing of a drawn string until the loading animation is
             // finished. rangedAimingOrLoaded is then held at 10 as long as the weapon is loaded.
-            // - Positive unk_860 means the weapon has actually been loaded since entering aiming mode (it is set
+            // - Positive unk_860.rangedWeaponState means the weapon has actually been loaded since entering aiming mode (it is set
             // negative on init and exiting aiming). If this was not a condition, this part would run when changing
             // weapon into/going into aiming mode with Bow/Slingshot (the string is fully drawn and instantly let go) as
             // due to how the ranged setup works, PLAYER_STATE1_RANGED_WEAPON_LOADED is set briefly after entering
             // aiming even if the weapon is not loaded
-            if ((this->stateFlags1 & PLAYER_STATE1_RANGED_WEAPON_LOADED) && (this->unk_860 >= 0) &&
+            if ((this->stateFlags1 & PLAYER_STATE1_RANGED_WEAPON_LOADED) && (this->unk_860.rangedWeaponState >= 0) &&
                 (this->rangedAimingOrLoaded <= 10)) {
                 Vec3f sp90;
                 f32 distXYZ;
@@ -1805,31 +1805,31 @@ void Player_PostLimbDrawGameplay(PlayState* play, s32 limbIndex, Gfx** dList, Ve
                 Matrix_MultVec3f(&sZeroVec, &sp90);
                 distXYZ = Math_Vec3f_DistXYZ(sCurBodyPartPos, &sp90);
 
-                this->unk_858 = distXYZ - 3.0f;
+                this->unk_858.stringReboundVar1 = distXYZ - 3.0f;
                 if (distXYZ < 3.0f) {
-                    this->unk_858 = 0.0f; // Neutral
+                    this->unk_858.stringReboundVar1 = 0.0f; // Neutral
                 } else {
-                    this->unk_858 *= 1.6f;
-                    if (this->unk_858 > 1.0f) {
-                        this->unk_858 = 1.0f; // Fully drawn
+                    this->unk_858.stringReboundVar1 *= 1.6f;
+                    if (this->unk_858.stringReboundVar1 > 1.0f) {
+                        this->unk_858.stringReboundVar1 = 1.0f; // Fully drawn
                     }
                 }
 
-                this->unk_85C = -0.5f;
+                this->unk_85C.stringReboundVar2 = -0.5f;
             }
 
             // In Player_UpdateCommon, if player is holding a ranged weapon, Player_StringReboundCalculation is run
-            // (before this function). This sets unk_858 depending on previous value (and unk_85C). If the weapon is not
-            // loaded and unk_858 set above, this value for unk_858 is used for drawing and creates a string rebound
+            // (before this function). This sets unk_858.stringReboundVar1 depending on previous value (and unk_85C.stringReboundVar2). If the weapon is not
+            // loaded and unk_858.stringReboundVar1 set above, this value for unk_858.stringReboundVar1 is used for drawing and creates a string rebound
             // effect.
 
             // Set the position of the middle of the string, depending on either rebound calculation or calculation
             // above. 0.0f = neutral, 1.0f = fully drawn
-            Matrix_Scale(1.0f, this->unk_858, 1.0f, MTXMODE_APPLY);
+            Matrix_Scale(1.0f, this->unk_858.stringReboundVar1, 1.0f, MTXMODE_APPLY);
 
             // For Slingshot, pull the string downwards (closer to Link, along the Slingshot)
             if (!LINK_IS_ADULT) {
-                Matrix_RotateZ(this->unk_858 * -0.2f, MTXMODE_APPLY);
+                Matrix_RotateZ(this->unk_858.stringReboundVar1 * -0.2f, MTXMODE_APPLY);
             }
 
             MATRIX_FINALIZE_AND_LOAD(POLY_XLU_DISP++, play->state.gfxCtx, "../z_player_lib.c", 2804);
