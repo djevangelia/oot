@@ -4642,6 +4642,7 @@ s32 Camera_Subj4(Camera* camera) {
 
     rwData->eyeLerp = eyeLerp;
 
+    // Tie player position to camera
     camera->player->actor.world.pos = *eyeNext;
     camera->player->actor.world.pos.y = camera->playerGroundY;
     camera->player->actor.shape.rot.y = targetOffset.yaw;

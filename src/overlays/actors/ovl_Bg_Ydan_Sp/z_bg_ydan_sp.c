@@ -412,7 +412,7 @@ void BgYdanSp_WallWebIdle(BgYdanSp* this, PlayState* play) {
     if (Flags_GetSwitch(play, this->burnSwitchFlag) || (this->colliderTris.base.acFlags & AC_HIT)) {
         this->dyna.actor.home.pos.y = this->dyna.actor.world.pos.y + 80.0f;
         BgYdanSp_BurnWeb(this, play);
-    } else if (player->heldItemAction == PLAYER_IA_DEKU_STICK && player->unk_860.dekuStickState != 0) {
+    } else if (player->heldItemAction == PLAYER_IA_DEKU_STICK && player->wv3.dekuStickTimer != 0) {
         Actor_WorldToActorCoords(&this->dyna.actor, &sp30, MELEE_WEAPON_INFO_TIP(&player->meleeWeaponInfo[0]));
         if (fabsf(sp30.x) < 100.0f && sp30.z < 1.0f && sp30.y < 200.0f) {
             OnePointCutscene_Init(play, 3020, 40, &this->dyna.actor, CAM_ID_MAIN);

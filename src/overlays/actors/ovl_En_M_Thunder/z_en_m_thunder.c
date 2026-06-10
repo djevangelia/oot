@@ -164,12 +164,12 @@ void EnMThunder_ChargingSpinAttack(EnMThunder* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     Actor* child = this->actor.child;
 
-    this->spinChargePercent = player->unk_858.spinAttackCharge;
+    this->spinChargePercent = player->wv1.spinAttackCharge;
     this->actor.world.pos = player->bodyPartsPos[PLAYER_BODYPART_WAIST];
     this->actor.shape.rot.y = player->actor.shape.rot.y + 0x8000;
 
     if (!this->isUsingMagic) {
-        if (player->unk_858.spinAttackCharge >= 0.1f) {
+        if (player->wv1.spinAttackCharge >= 0.1f) {
             if ((gSaveContext.magicState != MAGIC_STATE_IDLE) ||
                 (PARAMS_GET_S(this->actor.params, 8, 8) &&
                  !(Magic_RequestChange(play, PARAMS_GET_S(this->actor.params, 8, 8), MAGIC_CONSUME_WAIT_PREVIEW)))) {
@@ -185,8 +185,8 @@ void EnMThunder_ChargingSpinAttack(EnMThunder* this, PlayState* play) {
         }
     }
 
-    if (player->unk_858.spinAttackCharge >= 0.1f) {
-        Rumble_Request(0.0f, (s32)(player->unk_858.spinAttackCharge * 150.0f), 2, (s32)(player->unk_858.spinAttackCharge * 150.0f));
+    if (player->wv1.spinAttackCharge >= 0.1f) {
+        Rumble_Request(0.0f, (s32)(player->wv1.spinAttackCharge * 150.0f), 2, (s32)(player->wv1.spinAttackCharge * 150.0f));
     }
 
     if (player->stateFlags2 & PLAYER_STATE2_RELEASE_SPIN_ATTACK) {
@@ -194,8 +194,8 @@ void EnMThunder_ChargingSpinAttack(EnMThunder* this, PlayState* play) {
             child->parent = NULL;
         }
 
-        if (player->unk_858.spinAttackCharge <= 0.15f) {
-            if ((player->unk_858.spinAttackCharge >= 0.1f) && (player->meleeWeaponAnimation >= PLAYER_MWA_SPIN_ATTACK_1H)) {
+        if (player->wv1.spinAttackCharge <= 0.15f) {
+            if ((player->wv1.spinAttackCharge >= 0.1f) && (player->meleeWeaponAnimation >= PLAYER_MWA_SPIN_ATTACK_1H)) {
                 SFX_PLAY_AT_POS(&player->actor.projectedPos, NA_SE_IT_ROLLING_CUT);
                 SFX_PLAY_AT_POS(&player->actor.projectedPos, NA_SE_IT_SWORD_SWING_HARD);
             }
@@ -206,7 +206,7 @@ void EnMThunder_ChargingSpinAttack(EnMThunder* this, PlayState* play) {
             if (PARAMS_GET_S(this->actor.params, 8, 8)) {
                 gSaveContext.magicState = MAGIC_STATE_CONSUME_SETUP;
             }
-            if (player->unk_858.spinAttackCharge < 0.85f) {
+            if (player->wv1.spinAttackCharge < 0.85f) {
                 this->collider.elem.atDmgInfo.dmgFlags = sSpinAttackDmgFlags[this->swordType];
                 this->attackStrength = M_THUNDER_ATTACK_WEAK;
                 this->targetScale = ((this->swordType == M_THUNDER_SWORD_KOKIRI) ? 2 : 4);
@@ -243,27 +243,27 @@ void EnMThunder_ChargingSpinAttack(EnMThunder* this, PlayState* play) {
         return;
     }
 
-    if (player->unk_858.spinAttackCharge > 0.15f) {
+    if (player->wv1.spinAttackCharge > 0.15f) {
         this->chargeAlpha = 255;
         if (this->actor.child == NULL) {
             Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_EFF_DUST, this->actor.world.pos.x,
                                this->actor.world.pos.y, this->actor.world.pos.z, 0, this->actor.shape.rot.y, 0,
                                this->swordType + 2);
         }
-        this->dimmingIntensity += ((((player->unk_858.spinAttackCharge - 0.15f) * 1.5f) - this->dimmingIntensity) * 0.5f);
+        this->dimmingIntensity += ((((player->wv1.spinAttackCharge - 0.15f) * 1.5f) - this->dimmingIntensity) * 0.5f);
 
-    } else if (player->unk_858.spinAttackCharge > .1f) {
-        this->chargeAlpha = (s32)((player->unk_858.spinAttackCharge - .1f) * 255.0f * 20.0f);
-        this->spinAttackTimer = (player->unk_858.spinAttackCharge - .1f) * 10.0f;
+    } else if (player->wv1.spinAttackCharge > .1f) {
+        this->chargeAlpha = (s32)((player->wv1.spinAttackCharge - .1f) * 255.0f * 20.0f);
+        this->spinAttackTimer = (player->wv1.spinAttackCharge - .1f) * 10.0f;
     } else {
         this->chargeAlpha = 0;
     }
 
-    if (player->unk_858.spinAttackCharge > 0.85f) {
+    if (player->wv1.spinAttackCharge > 0.85f) {
         Audio_PlaySwordChargeSfx(&player->actor.projectedPos, 2);
-    } else if (player->unk_858.spinAttackCharge > 0.15f) {
+    } else if (player->wv1.spinAttackCharge > 0.15f) {
         Audio_PlaySwordChargeSfx(&player->actor.projectedPos, 1);
-    } else if (player->unk_858.spinAttackCharge > 0.1f) {
+    } else if (player->wv1.spinAttackCharge > 0.1f) {
         Audio_PlaySwordChargeSfx(&player->actor.projectedPos, 0);
     }
 

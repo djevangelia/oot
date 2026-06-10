@@ -683,11 +683,11 @@ typedef struct PlayerAgeProperties {
     /* 0x86 */ Vec3s unk_86[2];
     /* 0x92 */ u16 ageVoiceSfxOffset; // offset for playing voice effects (+0x20 for child Link)
     /* 0x94 */ u16 unk_94;
-    /* 0x98 */ LinkAnimationHeader* unk_98;
+    /* 0x98 */ LinkAnimationHeader* openMajorChestAnim; // Animation when opening chest with major/new item
     /* 0x9C */ LinkAnimationHeader* timeTravelStartAnim;
     /* 0xA0 */ LinkAnimationHeader* timeTravelEndAnim;
-    /* 0xA4 */ LinkAnimationHeader* unk_A4;
-    /* 0xA8 */ LinkAnimationHeader* unk_A8;
+    /* 0xA4 */ LinkAnimationHeader* ladderMountBelowAnim; // Mounting ladders at the bottom
+    /* 0xA8 */ LinkAnimationHeader* ladderMountTopAnim; // Mounting ladders at the top
     /* 0xAC */ LinkAnimationHeader* unk_AC[4];
     /* 0xBC */ LinkAnimationHeader* sideClimbAnim[2]; // Climbing walls sideways
     /* 0xC4 */ LinkAnimationHeader* dismountLadderDownAnim[2]; // Dismounting ladders at the top
@@ -930,6 +930,7 @@ typedef struct Player {
         s8 castedSpell; // Player_Action_CastMagicSpell: Magic spell that is being casted.
         s8 isClimbWall; // Player_Action_Climbing: True if climbed wall is a climbable wall and not ladder
         s8 messageItemSfxDone; // Player_GetItemTextboxSfx: Player has received textbox, item and sfx for get item
+        s8 jumpDirection; // Player_Action_NotOnGround: Direction of sidehop/backflip
     } av1; // "Action Variable 1": context dependent variable that has different meanings depending on what action is currently running
 
     /* 0x0850 */ union {
@@ -954,6 +955,7 @@ typedef struct Player {
         s16 hasStartedCharging; // Player_Action_ChargeSpinAttackNeutral etc: Player has charged a spin attack to the point it cannot be aborted
         s16 liftFrameCount; // Player_Action_LiftWithoutStrength: Frame count for trying to lift
         s16 liftFinished; // Player_Action_LiftSilverRock: Flag that the rock lift animation is finished, and player is holding the rock
+        s16 jumpPhase; // Player_Action_NotOnGround: Phase of jump/airborne
     } av2; // "Action Variable 2": context dependent variable that has different meanings depending on what action is currently running
 
     /* 0x0854 */ f32 rippleVar; // Used when spawning ripples in water
@@ -963,19 +965,20 @@ typedef struct Player {
         f32 spinAttackCharge;
         f32 stringReboundVar1;
         f32 fishingVar1;
-    } unk_858;   // Used in Bow/Slingshot string rebound calculations among other things.
+    } wv1;   // unk_858 Used in Bow/Slingshot string rebound calculations among other things.
     /* 0x085C */ union {
         f32 weaponVar2;
         f32 stringReboundVar2;
         f32 dekuStickLength; // 1.0f is full length Deku Stick
         f32 fishingVar2;
-    } unk_85C; // stick length among other things (TODO: probably part of an "fwork" array). Used in Bow/Slingshot string rebound calculations.
-    /* 0x0860 */ union { 
+    } wv2; // unk_85C stick length among other things (TODO: probably part of an "fwork" array). Used in Bow/Slingshot string rebound calculations.
+    /* 0x0860 */ union {
+        s16 weaponVar3;
         s16 specialWeaponState;
         s16 rangedWeaponState;
         s16 fishingRodState;
-        s16 dekuStickState;
-    } unk_860; // stick flame timer among other things. Flag for which ranged weapon is used, negative if not loaded yet.
+        s16 dekuStickTimer;
+    } wv3; // unk_860 stick flame timer among other things. Flag for which ranged weapon is used, negative if not loaded yet.
     
     /* 0x0862 */ s8 giDrawID; // get item draw ID + 1
     /* 0x0864 */ f32 unk_864;
