@@ -185,7 +185,7 @@ s32 Player_UpperAction_BoomerangWaitReturn(Player* this, PlayState* play);
 s32 Player_UpperAction_BoomerangWaitForCatchAnim(Player* this, PlayState* play);
 
 void Player_UseItem(PlayState* play, Player* this, s32 item);
-void Player_SetupIdleDependingOnTarget(Player* this, PlayState* play);
+void Player_ReturnToIdle(Player* this, PlayState* play);
 s32 Player_SetupThrowDekuNut(PlayState* play, Player* this);
 void Player_UpdateCommon(Player* this, PlayState* play, Input* input);
 void Player_StringReboundCalculation(Player* this);
@@ -3671,7 +3671,7 @@ void Player_SetParallel(Player* this) {
 s32 Player_ActorIsNull(PlayState* play, Player* this, Actor* actor) {
     if (actor == NULL) {
         Player_ResetStatesHeldActor(play, this);
-        Player_SetupIdleDependingOnTarget(this, play);
+        Player_ReturnToIdle(this, play);
         return true;
     }
 
@@ -6219,7 +6219,7 @@ void Player_SetupIdleParallel(Player* this, PlayState* play) {
  * Sets up idle action depending on no target/parallel/hostile Z-target
  * by calling their setup functions, which also set idle animations.
  */
-void Player_SetupIdleDependingOnTarget(Player* this, PlayState* play) {
+void Player_ReturnToIdle(Player* this, PlayState* play) {
     if (Player_CheckHostileLockOn(this)) {
         Player_SetupIdleHostileWithFootWeight(this, play);
     } else if (Player_FriendlyLockOnOrParallel(this)) {
@@ -6233,7 +6233,7 @@ void Player_SetupIdleDependingOnTarget(Player* this, PlayState* play) {
  * Sets action function to idle function depending on no target/parallel/Z-target.
  * Does not set new animations, keeps previously set animation.
  */
-void Player_SetupIdleDependingOnTargetKeepAnim(Player* this, PlayState* play) {
+void Player_SetupIdleKeepSetAnim(Player* this, PlayState* play) {
     PlayerActionFunc actionFunc;
 
     if (Player_CheckHostileLockOn(this)) {
@@ -6247,8 +6247,8 @@ void Player_SetupIdleDependingOnTargetKeepAnim(Player* this, PlayState* play) {
     Player_SetupAction(play, this, actionFunc, 1);
 }
 
-void Player_SetupIdleDependingOnTarget2(Player* this, PlayState* play) {
-    Player_SetupIdleDependingOnTargetKeepAnim(this, play);
+void Player_SetupIdleKeepSetAnimSetActionVar(Player* this, PlayState* play) {
+    Player_SetupIdleKeepSetAnim(this, play);
 
     // Used by Player_Action_IdleHostile to make sure started animation finishes
     if (Player_CheckHostileLockOn(this)) {
@@ -6259,8 +6259,8 @@ void Player_SetupIdleDependingOnTarget2(Player* this, PlayState* play) {
 /**
  * Setup idle depending on no target/parallel/Z-target and play a given animation once.
  */
-void Player_PlayAnimAndSetupIdle(Player* this, LinkAnimationHeader* anim, PlayState* play) {
-    Player_SetupIdleDependingOnTarget2(this, play);
+void Player_SetupIdlePlayGivenAnim(Player* this, LinkAnimationHeader* anim, PlayState* play) {
+    Player_SetupIdleKeepSetAnimSetActionVar(this, play);
     Player_AnimPlayOnceWaterSpeed(play, this, anim);
 }
 
@@ -6316,7 +6316,7 @@ void Player_SetupLiftActor(PlayState* play, Player* this) {
             Player_AnimPlayOnce(play, this, anim);
         }
     } else {
-        Player_SetupIdleDependingOnTarget(this, play);
+        Player_ReturnToIdle(this, play);
         this->stateFlags1 &= ~PLAYER_STATE1_CARRYING_ACTOR;
     }
 }
@@ -7213,7 +7213,7 @@ void Player_PlayStopRunWalkAnim(Player* this, PlayState* play) {
  * Setup idle depending on if target and play stop run/walk animation
  */
 void Player_SetupIdleWithStopRunWalkAnim(Player* this, PlayState* play) {
-    Player_SetupIdleDependingOnTargetKeepAnim(this, play);
+    Player_SetupIdleKeepSetAnim(this, play);
     Player_PlayStopRunWalkAnim(this, play);
 }
 
@@ -7235,7 +7235,7 @@ void Player_ExitCutsceneFirstPerson(Player* this, PlayState* play) {
         if (this->stateFlags1 & PLAYER_STATE1_IN_WATER) {
             Player_SetupSwimIdle(play, this);
         } else {
-            Player_SetupIdleDependingOnTarget(this, play);
+            Player_ReturnToIdle(this, play);
         }
         if (this->unk_6AD < 4) {
             this->unk_6AD = UNK6AD_NORMAL_CAMERA;
@@ -7474,7 +7474,7 @@ s32 Player_SetupBottleFishing(PlayState* play, Player* this) {
 /**
  * Setup non-target run/walk or parallel run/walk.
  */
-void Player_SetupRunDependingOnTarget(Player* this, PlayState* play) {
+void Player_SetupRunWalk(Player* this, PlayState* play) {
     PlayerActionFunc actionFunc;
 
     if (Player_IsZTargeting(this)) {
@@ -7492,7 +7492,7 @@ void Player_SetupRunDependingOnTarget(Player* this, PlayState* play) {
 
 void Player_SetupRunWithYawTarget(Player* this, PlayState* play, s16 yawTarget) {
     this->actor.shape.rot.y = this->yaw = yawTarget;
-    Player_SetupRunDependingOnTarget(this, play);
+    Player_SetupRunWalk(this, play);
 }
 
 /**
@@ -7625,7 +7625,7 @@ void Player_SetupIdleHostile(Player* this, PlayState* play) {
 
 void Player_SetupIdleOrRunWithFootWeight(Player* this, PlayState* play) {
     if (this->speedXZ != 0.0f) {
-        Player_SetupRunDependingOnTarget(this, play);
+        Player_SetupRunWalk(this, play);
     } else {
         Player_SetupIdleWithFootWeight(this, play);
     }
@@ -7633,9 +7633,9 @@ void Player_SetupIdleOrRunWithFootWeight(Player* this, PlayState* play) {
 
 void Player_SetupIdleOrRunDependingOnTargetWithAnim(Player* this, PlayState* play) {
     if (this->speedXZ != 0.0f) {
-        Player_SetupRunDependingOnTarget(this, play);
+        Player_SetupRunWalk(this, play);
     } else {
-        Player_SetupIdleDependingOnTarget(this, play);
+        Player_ReturnToIdle(this, play);
     }
 }
 
@@ -8773,8 +8773,7 @@ s32 Player_StillGrabbingBlock(PlayState* play, Player* this) {
         }
     }
 
-    // Player is no longer grabbing the object, enter idle
-    Player_SetupIdleDependingOnTargetKeepAnim(this, play);
+    Player_SetupIdleKeepSetAnim(this, play);
     Player_AnimPlayOnce(play, this, &gPlayerAnim_link_normal_push_wait_end);
     this->stateFlags2 &= ~PLAYER_STATE2_PUSH_PULL;
     return true;
@@ -9530,7 +9529,7 @@ void Player_Action_Backwalk(Player* this, PlayState* play) {
         if (direction >= 0) {
             if (!Player_HasStoppedBackwalk(this, &speedTarget, &yawTarget, play)) {
                 if (direction != 0) {
-                    Player_SetupRunDependingOnTarget(this, play);
+                    Player_SetupRunWalk(this, play);
                 } else if (speedTarget > 4.9f) {
                     Player_SetupFastSidewalk(this, play);
                 } else {
@@ -9573,7 +9572,7 @@ void Player_Action_StopBackwalk(Player* this, PlayState* play) {
             this->yaw = this->actor.shape.rot.y;
 
             if (func_8083FD78(this, &speedTarget, &yawTarget, play) > 0) {
-                Player_SetupRunDependingOnTarget(this, play);
+                Player_SetupRunWalk(this, play);
             } else if ((speedTarget != 0.0f) || animFinished) {
                 Player_SetupStopBackwalkWaitAnim(this, play);
             }
@@ -9625,7 +9624,7 @@ void Player_Action_FastSidewalk(Player* this, PlayState* play) {
     if (!Player_TryActionHandlerList(play, this, sActionHandlerList5, true)) {
         // Check if dropped target
         if (!Player_IsZTargetingWithHostileUpdate(this)) {
-            Player_SetupRunDependingOnTarget(this, play);
+            Player_SetupRunWalk(this, play);
             return;
         }
 
@@ -9638,7 +9637,7 @@ void Player_Action_FastSidewalk(Player* this, PlayState* play) {
         }
 
         if (direction > 0) {
-            Player_SetupRunDependingOnTarget(this, play);
+            Player_SetupRunWalk(this, play);
         } else if (direction < 0) {
             if (Player_FriendlyLockOnOrParallel(this)) {
                 Player_SetupBackwalk(this, yawTarget, play);
@@ -9649,7 +9648,7 @@ void Player_Action_FastSidewalk(Player* this, PlayState* play) {
             if (!Player_CheckHostileLockOn(this) && Player_FriendlyLockOnOrParallel(this)) {
                 Player_SetupSlowSidewalk(this, play);
             } else {
-                Player_SetupIdleDependingOnTarget(this, play);
+                Player_ReturnToIdle(this, play);
             }
         } else {
             s16 yawDiff;
@@ -9710,7 +9709,7 @@ void Player_Action_TurnInPlace(Player* this, PlayState* play) {
     if (!Player_TryActionHandlerList(play, this, sActionHandlerListTurnInPlace, true)) {
         if (speedTarget != 0.0f) {
             this->actor.shape.rot.y = yawTarget;
-            Player_SetupRunDependingOnTarget(this, play);
+            Player_SetupRunWalk(this, play);
         } else if (Math_ScaledStepToS(&this->actor.shape.rot.y, yawTarget, this->turnRate)) {
             Player_SetupIdlePlayOnce(this, play);
         }
@@ -9831,7 +9830,7 @@ void Player_Action_RunWalk(Player* this, PlayState* play) {
     if (!Player_TryActionHandlerList(play, this, sActionHandlerList8, true)) {
         // If targeting/parallel, set new action
         if (Player_IsZTargetingWithHostileUpdate(this)) {
-            Player_SetupRunDependingOnTarget(this, play);
+            Player_SetupRunWalk(this, play);
             return;
         }
 
@@ -9860,7 +9859,7 @@ void Player_Action_RunWalkParallel(Player* this, PlayState* play) {
 
     if (!Player_TryActionHandlerList(play, this, sActionHandlerList9, true)) {
         if (!Player_IsZTargetingWithHostileUpdate(this)) {
-            Player_SetupRunDependingOnTarget(this, play);
+            Player_SetupRunWalk(this, play);
             return;
         }
 
@@ -9870,7 +9869,7 @@ void Player_Action_RunWalkParallel(Player* this, PlayState* play) {
             if ((Player_FriendlyLockOnOrParallel(this) && (speedTarget != 0.0f) &&
                  (func_8083FD78(this, &speedTarget, &yawTarget, play) <= 0)) ||
                 (!Player_FriendlyLockOnOrParallel(this) && (func_8083FC68(this, speedTarget, yawTarget) <= 0))) {
-                Player_SetupIdleDependingOnTarget(this, play);
+                Player_ReturnToIdle(this, play);
                 return;
             }
 
@@ -9878,7 +9877,7 @@ void Player_Action_RunWalkParallel(Player* this, PlayState* play) {
             func_8083DDC8(this, play);
 
             if ((this->speedXZ == 0) && (speedTarget == 0)) {
-                Player_SetupIdleDependingOnTarget(this, play);
+                Player_ReturnToIdle(this, play);
             }
         }
     }
@@ -9892,7 +9891,7 @@ void Player_Action_808423EC(Player* this, PlayState* play) {
 
     if (!Player_TryActionHandlerList(play, this, sActionHandlerList5, true)) {
         if (!Player_IsZTargetingWithHostileUpdate(this)) {
-            Player_SetupRunDependingOnTarget(this, play);
+            Player_SetupRunWalk(this, play);
             return;
         }
 
@@ -9928,12 +9927,12 @@ void Player_Action_8084251C(Player* this, PlayState* play) {
             this->yaw = this->actor.shape.rot.y;
 
             if (func_8083FC68(this, speedTarget, yawTarget) > 0) {
-                Player_SetupRunDependingOnTarget(this, play);
+                Player_SetupRunWalk(this, play);
                 return;
             }
 
             if ((speedTarget != 0.0f) || animFinished) {
-                Player_SetupIdleDependingOnTarget(this, play);
+                Player_ReturnToIdle(this, play);
             }
         }
     }
@@ -9972,7 +9971,7 @@ void Player_Action_PlantMagicBean(Player* this, PlayState* play) {
 
     if (DECR(this->av2.plantBeanTimer) == 0) { // Starts at 80
         if (!Player_ActionHandler_13(this, play)) {
-            Player_PlayAnimAndSetupIdle(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_check_end, this->modelAnimType), play);
+            Player_SetupIdlePlayGivenAnim(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_check_end, this->modelAnimType), play);
         }
 
         this->actor.flags &= ~ACTOR_FLAG_TALK;
@@ -10338,7 +10337,7 @@ void Player_Action_ShieldCrouch(Player* this, PlayState* play) {
 
                 // Change animation and play sound
                 if (Player_IsChildWithHylianShield(this)) {
-                    Player_SetupIdleDependingOnTarget2(this, play);
+                    Player_SetupIdleKeepSetAnimSetActionVar(this, play);
                     LinkAnimation_Change(play, &this->skelAnime, &gPlayerAnim_clink_normal_defense_ALL, 1.0f,
                                          Animation_GetLastFrame(&gPlayerAnim_clink_normal_defense_ALL), 0.0f,
                                          ANIMMODE_ONCE, 0.0f);
@@ -10347,7 +10346,7 @@ void Player_Action_ShieldCrouch(Player* this, PlayState* play) {
                     if (this->itemAction < 0) { // Shielding sets IA -1
                         Player_RestoreHeldIA(this);
                     }
-                    Player_PlayAnimAndSetupIdle(
+                    Player_SetupIdlePlayGivenAnim(
                         this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_defense_end, this->modelAnimType), play);
                 }
 
@@ -10430,7 +10429,7 @@ void Player_Action_DamageReaction(Player* this, PlayState* play) {
 
     if ((interruptResult != PLAYER_INTERRUPT_NEW_ACTION) &&
         (LinkAnimation_Update(play, &this->skelAnime) || (interruptResult >= PLAYER_INTERRUPT_MOVE))) {
-        Player_SetupIdleDependingOnTarget(this, play);
+        Player_ReturnToIdle(this, play);
     }
 }
 
@@ -10535,7 +10534,7 @@ void Player_Action_KnockbackRise(Player* this, PlayState* play) {
 
         if ((interruptResult != PLAYER_INTERRUPT_NEW_ACTION) &&
             (LinkAnimation_Update(play, &this->skelAnime) || (interruptResult >= PLAYER_INTERRUPT_MOVE))) {
-            Player_SetupIdleDependingOnTarget(this, play);
+            Player_ReturnToIdle(this, play);
         }
     }
 
@@ -10843,10 +10842,10 @@ void Player_Action_NotOnGround(Player* this, PlayState* play) {
         sp3C = Player_SetFallDamage(play, this);
 
         if (sp3C > 0) {
-            Player_PlayAnimAndSetupIdle(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_landing, this->modelAnimType), play);
+            Player_SetupIdlePlayGivenAnim(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_landing, this->modelAnimType), play);
             this->skelAnime.endFrame = 8.0f;
 
-            // `Player_PlayAnimAndSetupIdle` above can choose from a few different "idle" action variants.
+            // `Player_SetupIdlePlayGivenAnim` above can choose from a few different "idle" action variants.
             // However `fallDamageStunTimer` is only processed by `Player_Action_Idle`.
             // This means it is possible for the stun to not take effect
             // (for example, by holding Z when landing).
@@ -10856,7 +10855,7 @@ void Player_Action_NotOnGround(Player* this, PlayState* play) {
                 this->av2.fallDamageStunTimer = 20;
             }
         } else if (sp3C == 0) {
-            Player_PlayAnimAndSetupIdle(this, anim, play);
+            Player_SetupIdlePlayGivenAnim(this, anim, play);
         }
     }
 }
@@ -10894,7 +10893,7 @@ void Player_Action_Roll(Player* this, PlayState* play) {
 
             if ((interruptResult != PLAYER_INTERRUPT_NEW_ACTION) &&
                 ((interruptResult >= PLAYER_INTERRUPT_MOVE) || animFinished)) {
-                Player_SetupIdleDependingOnTarget2(this, play);
+                Player_SetupIdleKeepSetAnimSetActionVar(this, play);
             }
         } else {
             // Must have a speed of 7 or above to be able to bonk into something
@@ -10933,7 +10932,7 @@ void Player_Action_Roll(Player* this, PlayState* play) {
 
             if ((this->skelAnime.curFrame < 15.0f) || !Player_ActionHandler_MeleeBottleFish(this, play)) {
                 if (this->skelAnime.curFrame >= 20.0f) {
-                    Player_SetupIdleDependingOnTarget2(this, play);
+                    Player_SetupIdleKeepSetAnimSetActionVar(this, play);
 
                     return;
                 }
@@ -11058,7 +11057,7 @@ void Player_SetupSpinChargeLeftRight(Player* this, PlayState* play) {
  * Moving back into idle position
  */
 void Player_AbortSpinAttackCharge(Player* this, PlayState* play) {
-    Player_SetupIdleDependingOnTargetKeepAnim(this, play);
+    Player_SetupIdleKeepSetAnim(this, play);
     Player_InactivateMeleeWeapon(this);
     Player_AnimChangeOnceMorph(play, this, sEndSpinCharge[Player_HoldsTwoHandedWeapon(this)]);
     this->yaw = this->actor.shape.rot.y;
@@ -11546,7 +11545,7 @@ void Player_Action_LiftActor(Player* this, PlayState* play) {
 
     // When lift animation is finished, set carry upper action
     if (LinkAnimation_Update(play, &this->skelAnime)) {
-        Player_SetupIdleDependingOnTarget(this, play);
+        Player_ReturnToIdle(this, play);
         Player_SetupUpperActionCarryActor(this, play);
     } else if (LinkAnimation_OnFrame(&this->skelAnime, 4.0f)) {
         Actor* interactRangeActor = this->interactRangeActor;
@@ -11577,7 +11576,7 @@ void Player_Action_LiftHeavyBlock(Player* this, PlayState* play) {
     // If lifting is finished
     if (LinkAnimation_Update(play, &this->skelAnime) && (this->av2.actionVar2++ > 20)) {
         if (!Player_ActionHandler_13(this, play)) {
-            Player_PlayAnimAndSetupIdle(this, &gPlayerAnim_link_normal_heavy_carry_end, play);
+            Player_SetupIdlePlayGivenAnim(this, &gPlayerAnim_link_normal_heavy_carry_end, play);
         }
         // Lift the block
     } else if (LinkAnimation_OnFrame(&this->skelAnime, 41.0f)) {
@@ -11635,7 +11634,7 @@ void Player_Action_LiftSilverRock(Player* this, PlayState* play) {
  */
 void Player_Action_ThrowSilverRock(Player* this, PlayState* play) {
     if (LinkAnimation_Update(play, &this->skelAnime)) {
-        Player_SetupIdleDependingOnTarget(this, play);
+        Player_ReturnToIdle(this, play);
         return;
     }
 
@@ -11667,7 +11666,7 @@ void Player_Action_LiftWithoutStrength(Player* this, PlayState* play) {
     if (this->av2.liftFrameCount != 0) {
         this->av2.liftFrameCount--;
         if (this->av2.liftFrameCount == 0) {
-            Player_PlayAnimAndSetupIdle(this, &gPlayerAnim_link_normal_nocarry_free_end, play);
+            Player_SetupIdlePlayGivenAnim(this, &gPlayerAnim_link_normal_nocarry_free_end, play);
             this->stateFlags1 &= ~PLAYER_STATE1_CARRYING_ACTOR;
             Player_PlayVoiceSfx(this, NA_SE_VO_LI_DAMAGE_S);
         }
@@ -11679,7 +11678,7 @@ void Player_Action_DropCarriedActor(Player* this, PlayState* play) {
 
     // Drop finished, exit action
     if (LinkAnimation_Update(play, &this->skelAnime)) {
-        Player_SetupIdleDependingOnTarget(this, play);
+        Player_ReturnToIdle(this, play);
         return;
     }
 
@@ -11708,7 +11707,7 @@ void Player_Action_ThrowCarriedActor(Player* this, PlayState* play) {
     if (LinkAnimation_Update(play, &this->skelAnime) ||
         ((this->skelAnime.curFrame >= 8.0f) &&
          Player_GetMovementSpeedAndYaw(this, &speedTarget, &yawTarget, SPEED_MODE_CURVED, play))) {
-        Player_SetupIdleDependingOnTarget(this, play);
+        Player_ReturnToIdle(this, play);
         return;
     }
 
@@ -14872,8 +14871,8 @@ void Player_Action_WaterIdle(Player* this, PlayState* play) {
             speedTarget = 0.0f;
             yawTarget = this->actor.shape.rot.y;
             if (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) {
-                Player_PlayAnimAndSetupIdle(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_short_landing, this->modelAnimType),
-                                         play);
+                Player_SetupIdlePlayGivenAnim(this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_short_landing, this->modelAnimType),
+                                            play);
                 Player_PlayLandingSfx(this);
             }
         } else {
@@ -15260,7 +15259,7 @@ void Player_Action_PlayOcarina(Player* this, PlayState* play) {
             this->naviActor->textId = -this->naviTextId;
             Player_StartTalking(play, this->talkActor);
         } else if (!Player_ActionHandler_13(this, play)) {
-            Player_PlayAnimAndSetupIdle(this, &gPlayerAnim_link_normal_okarina_end, play);
+            Player_SetupIdlePlayGivenAnim(this, &gPlayerAnim_link_normal_okarina_end, play);
         }
 
         this->stateFlags2 &= ~(PLAYER_STATE2_OCARINA_INVITE | PLAYER_STATE2_OCARINA_PLAY_FOR_ACTOR | PLAYER_STATE2_25);
@@ -15299,8 +15298,7 @@ void Player_Action_PlayOcarina(Player* this, PlayState* play) {
 void Player_Action_ThrowDekuNut(Player* this, PlayState* play) {
     // Finished throw animation, setup exit
     if (LinkAnimation_Update(play, &this->skelAnime)) {
-        Player_PlayAnimAndSetupIdle(this, &gPlayerAnim_link_normal_light_bom_end, play);
-    // Spawn nut, sound on animation frame
+        Player_SetupIdlePlayGivenAnim(this, &gPlayerAnim_link_normal_light_bom_end, play);
     } else if (LinkAnimation_OnFrame(&this->skelAnime, 3.0f)) {
         Inventory_ChangeAmmo(ITEM_DEKU_NUT, -1);
         Actor_Spawn(&play->actorCtx, play, ACTOR_EN_ARROW, this->bodyPartsPos[PLAYER_BODYPART_R_HAND].x,
@@ -15718,7 +15716,7 @@ void Player_Action_Grabbed(Player* this, PlayState* play) {
     }
 
     if (Player_TryBreakingFree(this, 0, 100)) {
-        Player_SetupIdleDependingOnTarget(this, play);
+        Player_ReturnToIdle(this, play);
         this->stateFlags2 &= ~PLAYER_STATE2_GRABBED;
     }
 }
@@ -15777,7 +15775,7 @@ void Player_Action_SlideOnSlope(Player* this, PlayState* play) {
             } else {
                 slideAnimation = GET_PLAYER_ANIM(PLAYER_ANIMGROUP_up_slope_slip_end, this->modelAnimType);
             }
-            Player_PlayAnimAndSetupIdle(this, slideAnimation, play);
+            Player_SetupIdlePlayGivenAnim(this, slideAnimation, play);
         }
 
         Math_SmoothStepToS(&this->yaw, downwardSlopeYaw, 10, 4000, 800);
@@ -15957,7 +15955,7 @@ void Player_Action_Frozen(Player* this, PlayState* play) {
     // Broke free
     } else {
         if (LinkAnimation_Update(play, &this->skelAnime)) {
-            Player_SetupIdleDependingOnTarget(this, play);
+            Player_ReturnToIdle(this, play);
             Player_SetInvulnerability(this, -20);
         }
     }
@@ -15973,7 +15971,7 @@ void Player_Action_Electrified(Player* this, PlayState* play) {
 
     if (((this->av2.actionVar2 % 25) != 0) || Player_ChangeHealth(play, this, -1)) {
         if (DECR(this->av2.actionVar2) == 0) {
-            Player_SetupIdleDependingOnTarget(this, play);
+            Player_ReturnToIdle(this, play);
         }
     }
 
@@ -16208,7 +16206,7 @@ void Player_Action_MeleeAttack(Player* this, PlayState* play) {
                     postAttackAnim = &gPlayerAnim_link_fighter_power_jump_kiru_end;
                 }
 
-                Player_PlayAnimAndSetupIdle(this, postAttackAnim, play); // Play animation + set new action function
+                Player_SetupIdlePlayGivenAnim(this, postAttackAnim, play); // Play animation + set new action function
 
                 this->skelAnime.movementFlags = saveFlags;
                 this->stateFlags3 |= PLAYER_STATE3_ENDING_MELEE_ATTACK;
@@ -16248,7 +16246,7 @@ void Player_Action_MeleeBounce(Player* this, PlayState* play) {
     Player_DecelerateToZero(this);
 
     if (this->skelAnime.curFrame >= 6.0f) {
-        Player_SetupIdleDependingOnTargetKeepAnim(this, play);
+        Player_SetupIdleKeepSetAnim(this, play);
     }
 }
 
@@ -16349,7 +16347,7 @@ void Player_Action_CastMagicSpell(Player* this, PlayState* play) {
         // 3) When finished, castedSpell has been set to -1 = exit action
         if (this->av1.castedSpell < MAGIC_SPELL_FARORE) {
             if ((this->itemAction == PLAYER_IA_NAYRUS_LOVE) || (gSaveContext.magicState == MAGIC_STATE_IDLE)) {
-                Player_SetupIdleDependingOnTargetKeepAnim(this, play);
+                Player_SetupIdleKeepSetAnim(this, play);
                 Camera_SetFinishedFlag(Play_GetCamera(play, CAM_ID_MAIN));
             }
 
@@ -16544,7 +16542,7 @@ void Player_Action_FishingCastReel(Player* this, PlayState* play) {
  */
 void Player_Action_FishingHoldingCatch(Player* this, PlayState* play) {
     if (LinkAnimation_Update(play, &this->skelAnime) && (this->wv3.fishingRodState == 0)) {
-        Player_PlayAnimAndSetupIdle(this, &gPlayerAnim_link_fishing_fish_catch_end, play);
+        Player_SetupIdlePlayGivenAnim(this, &gPlayerAnim_link_fishing_fish_catch_end, play);
     }
 }
 
