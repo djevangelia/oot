@@ -205,7 +205,7 @@ void func_80A53278(EnHeishi2* this, PlayState* play) {
         this->unk_30B = 1;
         this->unk_300 = TEXT_STATE_DONE;
         this->actionFunc = func_80A5475C;
-    } else if (GET_EVENTCHKINF(EVENTCHKINF_09) && GET_EVENTCHKINF(EVENTCHKINF_25) && GET_EVENTCHKINF(EVENTCHKINF_37)) {
+    } else if (GET_EVENTCHKINF(EVENTCHKINF_09) && GET_EVENTCHKINF(EVENTCHKINF_USED_DODONGOS_CAVERN_BLUE_WARP) && GET_EVENTCHKINF(EVENTCHKINF_37)) {
         PRINTF(VT_FGCOL(GREEN) T(" ☆☆☆☆☆ 全部の精霊石GET！ ☆☆☆☆☆ \n", " ☆☆☆☆☆ All the spirit stones GET! ☆☆☆☆☆ \n")
                    VT_RST);
         this->unk_300 = TEXT_STATE_DONE;

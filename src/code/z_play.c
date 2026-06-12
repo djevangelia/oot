@@ -1892,6 +1892,9 @@ void Play_SetupRespawnPoint(PlayState* this, s32 respawnMode, s32 playerParams) 
     }
 }
 
+/**
+ * Notably saves scene temp flags when voiding out
+ */
 void Play_TriggerVoidOut(PlayState* this) {
     gSaveContext.respawn[RESPAWN_MODE_DOWN].tempSwchFlags = this->actorCtx.flags.tempSwch;
     gSaveContext.respawn[RESPAWN_MODE_DOWN].tempCollectFlags = this->actorCtx.flags.tempCollect;

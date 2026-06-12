@@ -514,8 +514,8 @@ void DoorWarp1_ChildWarpOut(DoorWarp1* this, PlayState* play) {
                play->transitionTrigger, TRANS_TRIGGER_START);
 
         if (play->sceneId == SCENE_DODONGOS_CAVERN_BOSS) {
-            if (!Flags_GetEventChkInf(EVENTCHKINF_25)) {
-                Flags_SetEventChkInf(EVENTCHKINF_25);
+            if (!Flags_GetEventChkInf(EVENTCHKINF_USED_DODONGOS_CAVERN_BLUE_WARP)) {
+                Flags_SetEventChkInf(EVENTCHKINF_USED_DODONGOS_CAVERN_BLUE_WARP);
                 Item_Give(play, ITEM_GORON_RUBY);
                 play->nextEntranceIndex = ENTR_DEATH_MOUNTAIN_TRAIL_0;
                 gSaveContext.nextCutsceneIndex = CS_INDEX_1;

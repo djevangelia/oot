@@ -3965,7 +3965,7 @@ void KaleidoScope_Update(PlayState* play) {
             if (GET_EVENTCHKINF(EVENTCHKINF_40)) {
                 pauseCtx->worldMapPoints[WORLD_MAP_POINT_DEATH_MOUNTAIN] = WORLD_MAP_POINT_STATE_HIGHLIGHT;
             }
-            if (GET_EVENTCHKINF(EVENTCHKINF_25)) {
+            if (GET_EVENTCHKINF(EVENTCHKINF_USED_DODONGOS_CAVERN_BLUE_WARP)) {
                 pauseCtx->worldMapPoints[WORLD_MAP_POINT_DEATH_MOUNTAIN] = WORLD_MAP_POINT_STATE_SHOW;
             }
             if (INV_CONTENT(ITEM_HOOKSHOT) == ITEM_HOOKSHOT) {
@@ -4033,7 +4033,7 @@ void KaleidoScope_Update(PlayState* play) {
             if (CHECK_QUEST_ITEM(QUEST_SONG_LULLABY)) {
                 pauseCtx->worldMapPoints[WORLD_MAP_POINT_ZORAS_DOMAIN] = WORLD_MAP_POINT_STATE_SHOW;
             }
-            if (GET_EVENTCHKINF(EVENTCHKINF_25)) {
+            if (GET_EVENTCHKINF(EVENTCHKINF_USED_DODONGOS_CAVERN_BLUE_WARP)) {
                 pauseCtx->worldMapPoints[WORLD_MAP_POINT_ZORAS_DOMAIN] = WORLD_MAP_POINT_STATE_HIGHLIGHT;
             }
             if (GET_EVENTCHKINF(EVENTCHKINF_37)) {

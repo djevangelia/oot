@@ -931,6 +931,7 @@ typedef struct Player {
         s8 isClimbWall; // Player_Action_Climbing: True if climbed wall is a climbable wall and not ladder
         s8 messageItemSfxDone; // Player_GetItemTextboxSfx: Player has received textbox, item and sfx for get item
         s8 jumpDirection; // Player_Action_NotOnGround: Direction of sidehop/backflip
+        s8 useItemAnim; // Player_ActionHandler_13: Get which animation should be used for the item
     } av1; // "Action Variable 1": context dependent variable that has different meanings depending on what action is currently running
 
     /* 0x0850 */ union {
@@ -955,7 +956,9 @@ typedef struct Player {
         s16 hasStartedCharging; // Player_Action_ChargeSpinAttackNeutral etc: Player has charged a spin attack to the point it cannot be aborted
         s16 liftFrameCount; // Player_Action_LiftWithoutStrength: Frame count for trying to lift
         s16 liftFinished; // Player_Action_LiftSilverRock: Flag that the rock lift animation is finished, and player is holding the rock
-        s16 jumpPhase; // Player_Action_NotOnGround: Phase of jump/airborne
+        s16 airPhase; // Player_Action_NotOnGround: Phase of jump/airborne
+        s16 textboxStarted; // Player_Action_UseSetFaroresWind: True if first cast textbox has been started
+        s16 leftFootAbove;
     } av2; // "Action Variable 2": context dependent variable that has different meanings depending on what action is currently running
 
     /* 0x0854 */ f32 rippleVar; // Used when spawning ripples in water

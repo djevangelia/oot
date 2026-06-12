@@ -534,7 +534,7 @@ void EnOssan_TalkZoraShopkeeper(PlayState* play) {
 // Goron City, Goron
 void EnOssan_TalkGoronShopkeeper(PlayState* play) {
     if (LINK_AGE_IN_YEARS == YEARS_CHILD) {
-        if (GET_EVENTCHKINF(EVENTCHKINF_25)) {
+        if (GET_EVENTCHKINF(EVENTCHKINF_USED_DODONGOS_CAVERN_BLUE_WARP)) {
             Message_ContinueTextbox(play, 0x3028);
         } else if (CUR_UPG_VALUE(UPG_STRENGTH) != 0) {
             Message_ContinueTextbox(play, 0x302D);
@@ -624,7 +624,7 @@ void EnOssan_Init(Actor* thisx, PlayState* play) {
     }
 
     // Completed Dodongo's Cavern
-    if (this->actor.params == OSSAN_TYPE_BOMBCHUS && !GET_EVENTCHKINF(EVENTCHKINF_25)) {
+    if (this->actor.params == OSSAN_TYPE_BOMBCHUS && !GET_EVENTCHKINF(EVENTCHKINF_USED_DODONGOS_CAVERN_BLUE_WARP)) {
         Actor_Kill(&this->actor);
         return;
     }
@@ -1485,7 +1485,7 @@ void EnOssan_HandleCanBuyBombs(PlayState* play, EnOssan* this) {
 
 void EnOssan_BuyGoronCityBombs(PlayState* play, EnOssan* this) {
     if (LINK_AGE_IN_YEARS == YEARS_CHILD) {
-        if (!GET_EVENTCHKINF(EVENTCHKINF_25)) {
+        if (!GET_EVENTCHKINF(EVENTCHKINF_USED_DODONGOS_CAVERN_BLUE_WARP)) {
             if (GET_INFTABLE(INFTABLE_FC)) {
                 EnOssan_SetStateCantGetItem(play, this, 0x302E);
             } else {
