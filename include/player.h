@@ -896,7 +896,7 @@ typedef struct Player {
     /* 0x06B6 */ Vec3s headLimbRot;
     /* 0x06BC */ Vec3s upperLimbRot;
     /* 0x06C2 */ s16 unk_6C2;
-    /* 0x06C4 */ f32 unk_6C4;
+    /* 0x06C4 */ f32 quicksandEffect; // Measure of how large quicksand effect player is under. Affects displacement and movement speed.
     /* 0x06C8 */ SkelAnime upperSkelAnime;
     /* 0x070C */ Vec3s upperJointTable[PLAYER_LIMB_BUF_COUNT];
     /* 0x079C */ Vec3s upperMorphTable[PLAYER_LIMB_BUF_COUNT];

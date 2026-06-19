@@ -53,7 +53,7 @@ f32 Math_SinS(s16 angle) {
  * crosses this boundary.
  * @return true when target is reached, false otherwise.
  */
-s32 Math_ScaledStepToS(s16* pValue, s16 target, s16 step) {
+s32 Math_RotationStepToS(s16* pValue, s16 target, s16 step) {
     if (step != 0) {
         f32 updateScale = R_UPDATE_RATE * 0.5f;
 

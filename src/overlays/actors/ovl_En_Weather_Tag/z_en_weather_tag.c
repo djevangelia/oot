@@ -86,7 +86,7 @@ void EnWeatherTag_Init(Actor* thisx, PlayState* play) {
             PRINTF(VT_FGCOL(YELLOW) T("☆☆☆☆☆ ゆきがふるー あなたはこないー (._.) ☆☆☆☆☆ \n",
                                       "☆☆☆☆☆ The snow is falling... You're not coming... (._.) ☆☆☆☆☆ \n") VT_RST);
 
-            if (GET_EVENTCHKINF(EVENTCHKINF_4A)) {
+            if (GET_EVENTCHKINF(EVENTCHKINF_ENTER_WATER_TEMPLE_BLUE_WARP)) {
                 Actor_Kill(&this->actor);
             }
             EnWeatherTag_SetupAction(this, EnWeatherTag_DisabledCloudySnow);
@@ -96,7 +96,7 @@ void EnWeatherTag_Init(Actor* thisx, PlayState* play) {
             PRINTF(VT_FGCOL(YELLOW) T("☆☆☆☆☆ わわわわー なーがーさーきーはー (^o^) ☆☆☆☆☆ \n",
                                       "☆☆☆☆☆ Waaaa- Na-ga-sa-ki wa- (^o^) ☆☆☆☆☆ \n") VT_RST);
 
-            if (GET_EVENTCHKINF(EVENTCHKINF_4A)) {
+            if (GET_EVENTCHKINF(EVENTCHKINF_ENTER_WATER_TEMPLE_BLUE_WARP)) {
                 Actor_Kill(&this->actor);
             }
             EnWeatherTag_SetupAction(this, EnWeatherTag_DisabledRainLakeHylia);
@@ -116,7 +116,7 @@ void EnWeatherTag_Init(Actor* thisx, PlayState* play) {
                                       "☆☆☆☆☆ Cloudy with rain and thunder (;O;) Wow, I'm depressed ☆☆☆☆☆ \n") VT_RST);
 
             if (!GET_EVENTCHKINF(EVENTCHKINF_48) || !GET_EVENTCHKINF(EVENTCHKINF_49) ||
-                !GET_EVENTCHKINF(EVENTCHKINF_4A) || CHECK_QUEST_ITEM(QUEST_MEDALLION_SHADOW)) {
+                !GET_EVENTCHKINF(EVENTCHKINF_ENTER_WATER_TEMPLE_BLUE_WARP) || CHECK_QUEST_ITEM(QUEST_MEDALLION_SHADOW)) {
                 Actor_Kill(&this->actor);
             }
             EnWeatherTag_SetupAction(this, EnWeatherTag_DisabledCloudyRainThunderKakariko);

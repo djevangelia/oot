@@ -1676,7 +1676,7 @@ static LinkAnimationHeader* D_80854360[] = {
     &gPlayerAnim_link_fighter_Lpower_kiru_wait,
 };
 
-static LinkAnimationHeader* sEndSpinCharge[] = {
+static LinkAnimationHeader* sEndSpinChargeAnim[] = {
     &gPlayerAnim_link_fighter_power_kiru_wait_end,
     &gPlayerAnim_link_fighter_Lpower_kiru_wait_end,
 };
@@ -1698,7 +1698,7 @@ static u16 sItemButtons[] = { BTN_B, BTN_CLEFT, BTN_CDOWN, BTN_CRIGHT };
 
 static u8 sMagicSpellCosts[] = { 12, 24, 24, 12, 24, 12 };
 
-static u16 sRangedWeaponLoad[] = { NA_SE_IT_BOW_DRAW, NA_SE_IT_SLING_DRAW, NA_SE_IT_HOOKSHOT_READY };
+static u16 sRangedWeaponLoadSfx[] = { NA_SE_IT_BOW_DRAW, NA_SE_IT_SLING_DRAW, NA_SE_IT_HOOKSHOT_READY };
 
 static u8 sMagicArrowCosts[] = { 4, 4, 8 };
 
@@ -1727,12 +1727,12 @@ static LinkAnimationHeader* sBlockCrouch[] = {
     &gPlayerAnim_link_fighter_defense_long_hit,
 };
 
-static LinkAnimationHeader* D_808543CC[] = {
+static LinkAnimationHeader* sRangedSidewalkLoadAnim[] = {
     &gPlayerAnim_link_bow_walk2ready,
     &gPlayerAnim_link_hook_walk2ready,
 };
 
-static LinkAnimationHeader* D_808543D4[] = {
+static LinkAnimationHeader* sRangedAimingAnim[] = {
     &gPlayerAnim_link_bow_bow_wait,
     &gPlayerAnim_link_hook_wait,
 };
@@ -3017,7 +3017,7 @@ s32 Player_Ranged_LoadWeapon(Player* this, PlayState* play) {
         // If weapon has been loaded at least once since entering aiming mode.
         // This is necessary to prevent weapons from firing when entering aiming
         if (this->wv3.rangedWeaponState >= 0) {
-            Player_PlaySfx(this, sRangedWeaponLoad[ABS(this->wv3.rangedWeaponState) - 1]); // 0 = Bow, 1 = Slingshot, 2 = Hookshot
+            Player_PlaySfx(this, sRangedWeaponLoadSfx[ABS(this->wv3.rangedWeaponState) - 1]); // 0 = Bow, 1 = Slingshot, 2 = Hookshot
 
             // If not holding hookshot and has ammo for the weapon
             if (!Player_HoldsHookshot(this) && (Player_ReturnItemAmmo(play, this, &item, &arrowType) > 0)) {
@@ -3108,7 +3108,7 @@ LinkAnimationHeader* Player_StandShieldSelectAnim(PlayState* play, Player* this)
 /**
  * Sets up first frame shielding with a Z-target/in parallel. Does not handle child Link
  * with Hylian Shield.
- * @return 1 if starting shielding, otherwise 0
+ * @return true if starting shielding, otherwise false
  */
 s32 Player_StartStandShield(PlayState* play, Player* this) {
     LinkAnimationHeader* anim;
@@ -3492,7 +3492,7 @@ s32 Player_Ranged_FireWeapon(PlayState* play, Player* this) {
     return false;
 }
 
-static u16 sBowSlingshotFlick[] = { NA_SE_IT_BOW_FLICK, NA_SE_IT_SLING_FLICK };
+static u16 sBowSlingshotFlickSfx[] = { NA_SE_IT_BOW_FLICK, NA_SE_IT_SLING_FLICK };
 
 /**
  * This handles loaded ranged weapons (Bow, Slingshot, Hookshot) that are not yet fired.
@@ -3512,20 +3512,20 @@ s32 Player_UpperAction_RangedLoaded(Player* this, PlayState* play) {
         HoldsHookshot = true;
     }
 
-    Math_ScaledStepToS(&this->upperLimbRot.z, 1200, 400);
+    Math_RotationStepToS(&this->upperLimbRot.z, 1200, 400);
     this->unk_6AE_rotFlags |= UNK6AE_ROT_UPPER_Z;
 
     // rangedAnimPullLoadDone is set to 0 when changing upper action function (in Player_SetUpperActionFunc).
     if ((this->rangedAnimPullLoadDone == 0) && (Player_CheckForIdleAnim(this) == IDLE_ANIM_NONE) &&
         (this->skelAnime.animation == &gPlayerAnim_link_bow_side_walk)) {
-        LinkAnimation_PlayOnce(play, &this->upperSkelAnime, D_808543CC[HoldsHookshot]);
+        LinkAnimation_PlayOnce(play, &this->upperSkelAnime, sRangedSidewalkLoadAnim[HoldsHookshot]);
         this->rangedAnimPullLoadDone = -1;
         // This LinkAnimation_Update animation will be set in earlier function to either pull up weapon or (for
         // Bow/Slingshot) load weapon. If finished, this sets to loop "wait" animation (weapon is loaded, waiting to
         // fire). rangedAnimPullLoadDone signals that loading has finished. Hookshot only runs this when pulling up the
         // weapon to set wait animation, as there is no load animation for Hookshot.
     } else if (LinkAnimation_Update(play, &this->upperSkelAnime)) {
-        LinkAnimation_PlayLoop(play, &this->upperSkelAnime, D_808543D4[HoldsHookshot]);
+        LinkAnimation_PlayLoop(play, &this->upperSkelAnime, sRangedAimingAnim[HoldsHookshot]);
         this->rangedAnimPullLoadDone = 1;
         // This value doesn't seem to get checked for anywhere.
     } else if (this->rangedAnimPullLoadDone == 1) {
@@ -3556,7 +3556,7 @@ s32 Player_UpperAction_RangedLoaded(Player* this, PlayState* play) {
             if (HoldsHookshot == false) {
                 // Could not fire due to no child actor - i.e. no ammo. Play flick sound
                 if (!Player_Ranged_FireWeapon(play, this)) {
-                    Player_PlaySfx(this, sBowSlingshotFlick[ABS(this->wv3.rangedWeaponState) - 1]); // Sound 0 = Bow, 1 = Slingshot
+                    Player_PlaySfx(this, sBowSlingshotFlickSfx[ABS(this->wv3.rangedWeaponState) - 1]); // Sound 0 = Bow, 1 = Slingshot
                 }
                 // If using Hookshot, fire if we are on ground
             } else if (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) {
@@ -3581,7 +3581,7 @@ s32 Player_UpperAction_RangedLoaded(Player* this, PlayState* play) {
 /**
  * Handles ranged weapons that are not yet loaded. Either results in loading the weapon
  * or putting it down.
- * @return always 1 as upper body is busy
+ * @return always true as upper body is busy
  */
 s32 Player_UpperAction_RangedNotLoaded(Player* this, PlayState* play) {
     LinkAnimation_Update(play, &this->upperSkelAnime);
@@ -3754,7 +3754,7 @@ s32 Player_UpperAction_BoomerangNotAiming(Player* this, PlayState* play) {
     if (this->stateFlags1 & PLAYER_STATE1_BOOMERANG_THROWN) {
         Player_SetUpperActionFunc(this, Player_UpperAction_BoomerangWaitReturn);
 
-        // Try throwing. If true, next upper action is Player_UpperAction_BoomerangWaitLoadAnim.
+    // Try throwing. If true, next upper action is Player_UpperAction_BoomerangWaitLoadAnim.
     } else if (Player_Ranged_InitAiming(this, play)) {
         return true;
     }
@@ -4284,15 +4284,15 @@ void Player_UpdateShapeYaw(Player* this, PlayState* play) {
 
         if ((focusActor != NULL) &&
             ((play->actorCtx.attention.reticleSpinCounter != 0) || (this->actor.category != ACTORCAT_PLAYER))) {
-            Math_ScaledStepToS(&this->actor.shape.rot.y, Math_Vec3f_Yaw(&this->actor.world.pos, &focusActor->focus.pos),
+            Math_RotationStepToS(&this->actor.shape.rot.y, Math_Vec3f_Yaw(&this->actor.world.pos, &focusActor->focus.pos),
                                4000);
         } else if ((this->stateFlags1 & PLAYER_STATE1_PARALLEL) &&
                    !(this->stateFlags2 & (PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT))) {
-            Math_ScaledStepToS(&this->actor.shape.rot.y, this->parallelYaw, 4000);
+            Math_RotationStepToS(&this->actor.shape.rot.y, this->parallelYaw, 4000);
         }
     // If only PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW is set, adjust shape yaw more slowly in facing direction
     } else if (!(this->stateFlags2 & PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT)) {
-        Math_ScaledStepToS(&this->actor.shape.rot.y, this->yaw, 2000);
+        Math_RotationStepToS(&this->actor.shape.rot.y, this->yaw, 2000);
     }
 
     this->unk_87C = this->actor.shape.rot.y - previousYaw;
@@ -4318,7 +4318,7 @@ s32 Player_ScaledStepBinangClamped(s16* pValue, s16 target, s16 step, s16 overfl
     clampedDiff = CLAMP(clampedDiff, -constraintRange, constraintRange);
     *pValue += (s16)(diff - clampedDiff);
 
-    Math_ScaledStepToS(pValue, target, step);
+    Math_RotationStepToS(pValue, target, step);
 
     valueBeforeOverflowClamp = *pValue;
     if (*pValue < -overflowRange) {
@@ -4599,8 +4599,8 @@ s32 Player_CalcSpeedAndYawFromControlStick(PlayState* play, Player* this, f32* o
             speedCap = this->currentSpeedLimit;
             floorPitchInfluence = CLAMP(sinFloorPitch, 0.0f, 0.6f);
 
-            if (this->unk_6C4 != 0.0f) {
-                speedCap -= this->unk_6C4 * 0.008f;
+            if (this->quicksandEffect != 0.0f) {
+                speedCap -= this->quicksandEffect * 0.008f;
                 speedCap = CLAMP_MIN(speedCap, 2.0f);
             }
 
@@ -4888,8 +4888,13 @@ void Player_SpawnThunderActor(PlayState* play, Player* this, s32 quickspinFlag) 
     }
 }
 
-s32 Player_CanSpinAttack(Player* this) {
-    s8 sp3C[4];
+/**
+ * Check the last 4 stick movements for direction and angle difference to check whether player
+ * can make a quickspin.
+ * @return true if possible to quickspin
+ */
+s32 Player_CanQuickspin(Player* this) {
+    s8 doubleAngle[4];
     s8* iter;
     s8* iter2;
     s8 temp1;
@@ -4900,8 +4905,9 @@ s32 Player_CanSpinAttack(Player* this) {
         return false;
     }
 
+    // Angle is -1 if low magnitude
     iter = &this->controlStickSpinAngles[0];
-    iter2 = &sp3C[0];
+    iter2 = &doubleAngle[0];
 
     for (i = 0; i < 4; i++, iter++, iter2++) {
         if ((*iter2 = *iter) < 0) {
@@ -4911,17 +4917,19 @@ s32 Player_CanSpinAttack(Player* this) {
         *iter2 *= 2;
     }
 
-    temp1 = sp3C[0] - sp3C[1];
+    // Negative value = counterclockwise
+    temp1 = doubleAngle[0] - doubleAngle[1];
 
     if (ABS(temp1) < 10) {
-        return false;
+        return false;   // Too small angle difference
     }
 
-    iter2 = &sp3C[1];
+    iter2 = &doubleAngle[1];
 
     for (i = 1; i < 3; i++, iter2++) {
         temp2 = *iter2 - *(iter2 + 1);
 
+        // Ensure that the angle difference isn't too small, and that the rotation is continuously in the same direction
         if ((ABS(temp2) < 10) || (temp2 * temp1 < 0)) {
             return false;
         }
@@ -4989,7 +4997,7 @@ s32 Player_GetMeleeWeaponAnimFromStickInput(Player* this) {
         mwa = sHammerMeleeWeaponAnims[controlStickDirection];
         this->tripleSlashCount = 0; // No triple slashing with Hammer
     } else {
-        if (Player_CanSpinAttack(this)) {
+        if (Player_CanQuickspin(this)) {
             mwa = PLAYER_MWA_SPIN_ATTACK_1H;
         } else {
             if (controlStickDirection <= PLAYER_STICK_DIR_NONE) {
@@ -5393,9 +5401,12 @@ void Player_SetInvincibility20(Player* this) {
     }
 }
 
+/**
+ * Handles some voidouts, crushing, voidout damage, knockback, shielding hits, AC hits, floor/wall damage
+ */
 s32 func_808382DC(Player* this, PlayState* play) {
     s32 pad;
-    s32 sp68 = false;
+    s32 quicksandVoidout = false;
     s32 shieldBlock;
 
     // Damage after voidout respawn
@@ -5405,13 +5416,13 @@ s32 func_808382DC(Player* this, PlayState* play) {
             this->voidoutDamage = 0;
         }
     } else {
-        sp68 = ((Player_GetHeight(this) - 8.0f) < (this->unk_6C4 * this->actor.scale.y));
+        quicksandVoidout = ((Player_GetHeight(this) - 8.0f) < (this->quicksandEffect * this->actor.scale.y));
 
-        if (sp68 || (this->actor.bgCheckFlags & BGCHECKFLAG_CRUSHED) || (sFloorType == FLOOR_TYPE_9) ||
+        if (quicksandVoidout || (this->actor.bgCheckFlags & BGCHECKFLAG_CRUSHED) || (sFloorType == FLOOR_TYPE_9) ||
             (this->stateFlags2 & PLAYER_STATE2_WHIRLPOOL_VOID)) {
             Player_PlayVoiceSfx(this, NA_SE_VO_LI_DAMAGE_S);
 
-            if (sp68) {
+            if (quicksandVoidout) {
                 Play_TriggerRespawn(play);
                 Scene_SetTransitionForNextEntrance(play);
             } else {
@@ -5820,7 +5831,7 @@ s32 Player_HandleExitsAndVoids(PlayState* play, Player* this, CollisionPoly* flo
              (Player_IsFloorSand(sFloorType) && (this->floorProperty == FLOOR_PROPERTY_12)))) {
             s32 fallenDistance = this->transitionPosY - (s32)this->actor.world.pos.y;
 
-            // Don't start transition too early or if fall height too low, if falling into a transition
+            // Don't start transition too early or if fall height too low if falling into a transition
             if (!(this->stateFlags1 & (PLAYER_STATE1_RIDING | PLAYER_STATE1_IN_WATER | PLAYER_STATE1_CUTSCENE)) &&
                 !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) && (fallenDistance < 100) && (sYDistToFloor > 100.0f)) {
                 return false;
@@ -6708,7 +6719,7 @@ void Player_ZeroHeadUpperRotationSetFocusY(Player* this) {
     this->actor.focus.rot.y = this->actor.shape.rot.y;
 }
 
-static u8 D_80854528[] = {
+static u8 sExchangeItemGIList[] = {
     GI_ZELDAS_LETTER,       // EXCH_ITEM_ZELDAS_LETTER
     GI_WEIRD_EGG,           // EXCH_ITEM_WEIRD_EGG
     GI_CHICKEN,             // EXCH_ITEM_CHICKEN
@@ -6740,7 +6751,7 @@ static u8 D_80854528[] = {
     GI_BOTTLE_RUTOS_LETTER, // EXCH_ITEM_BOTTLE_RUTOS_LETTER
 };
 
-static LinkAnimationHeader* D_80854548[] = {
+static LinkAnimationHeader* sUseExchangeItemAnim[] = {
     &gPlayerAnim_link_normal_give_other,
     &gPlayerAnim_link_bottle_read,
     &gPlayerAnim_link_normal_take_out,
@@ -6795,7 +6806,7 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
                         Player_SetupActionPreserveItemAction(play, this, Player_Action_ExchangeItem, 0);
 
                         if (relativeIA >= 0) {
-                            giEntry = &sGetItemTable[D_80854528[relativeIA] - 1];
+                            giEntry = &sGetItemTable[sExchangeItemGIList[relativeIA] - 1];
                             Player_ObjectDMARequest(this, giEntry->objectId);
                         }
 
@@ -6844,7 +6855,7 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
                             Player_AnimChangeOnceMorph(play, this,
                                                        GET_PLAYER_ANIM(PLAYER_ANIMGROUP_check, this->modelAnimType));
                         } else {
-                            Player_AnimPlayOnce(play, this, D_80854548[this->av1.useItemAnim]);
+                            Player_AnimPlayOnce(play, this, sUseExchangeItemAnim[this->av1.useItemAnim]);
                         }
 
                         Player_ZeroXZNormalCamera(this);
@@ -7860,6 +7871,7 @@ void func_8083D6EC(PlayState* play, Player* this) {
     this->actor.minVelocityY = FRAMERATE_CONST(-20.0f, -24.0f);
     this->actor.gravity = R_BOOT_GRAVITY / 100.0f;
 
+    // Handle quicksand
     if (Player_IsFloorSand(sFloorType)) {
         f32 temp1;
         f32 temp2;
@@ -7869,8 +7881,8 @@ void func_8083D6EC(PlayState* play, Player* this) {
         temp3 = 0.0f;
 
         if (sFloorType == FLOOR_TYPE_4) {
-            if (this->unk_6C4 > 1300.0f) {
-                temp2 = this->unk_6C4;
+            if (this->quicksandEffect > 1300.0f) {
+                temp2 = this->quicksandEffect;
             } else {
                 temp2 = 1300.0f;
             }
@@ -7889,19 +7901,19 @@ void func_8083D6EC(PlayState* play, Player* this) {
         }
 
         if (this->currentBoots != PLAYER_BOOTS_HOVER) {
-            temp3 = (temp2 - this->unk_6C4) * 0.02f;
+            temp3 = (temp2 - this->quicksandEffect) * 0.02f;
             temp3 = CLAMP(temp3, 0.0f, 300.0f);
             if (this->currentBoots == PLAYER_BOOTS_IRON) {
                 temp3 += temp3;
             }
         }
 
-        this->unk_6C4 += temp3 - temp1;
-        this->unk_6C4 = CLAMP(this->unk_6C4, 0.0f, temp2);
+        this->quicksandEffect += temp3 - temp1;
+        this->quicksandEffect = CLAMP(this->quicksandEffect, 0.0f, temp2);
 
-        this->actor.gravity -= this->unk_6C4 * 0.004f;
+        this->actor.gravity -= this->quicksandEffect * 0.004f;
     } else {
-        this->unk_6C4 = 0.0f;
+        this->quicksandEffect = 0.0f;
     }
 
     // Spawn ripples when running in water or swimming, depending on speed
@@ -8025,11 +8037,11 @@ void func_8083DDC8(Player* this, PlayState* play) {
         targetPitch = CLAMP(targetPitch, -4000, 4000);
         targetRoll = CLAMP(-targetRoll, -4000, 4000);
 
-        Math_ScaledStepToS(&this->upperLimbRot.x, targetPitch, 900);
+        Math_RotationStepToS(&this->upperLimbRot.x, targetPitch, 900);
         this->headLimbRot.x = -(f32)this->upperLimbRot.x * 0.5f;
 
-        Math_ScaledStepToS(&this->headLimbRot.z, targetRoll, 300);
-        Math_ScaledStepToS(&this->upperLimbRot.z, targetRoll, 200);
+        Math_RotationStepToS(&this->headLimbRot.z, targetRoll, 300);
+        Math_RotationStepToS(&this->upperLimbRot.z, targetRoll, 200);
 
         this->unk_6AE_rotFlags |= UNK6AE_ROT_HEAD_X | UNK6AE_ROT_HEAD_Z | UNK6AE_ROT_UPPER_X | UNK6AE_ROT_UPPER_Z;
     } else {
@@ -8039,7 +8051,7 @@ void func_8083DDC8(Player* this, PlayState* play) {
 
 void func_8083DF68(Player* this, f32 speedTarget, s16 yawTarget) {
     Math_AsymStepToF(&this->speedXZ, speedTarget, REG(19) / 100.0f, 1.5f);
-    Math_ScaledStepToS(&this->yaw, yawTarget, REG(27));
+    Math_RotationStepToS(&this->yaw, yawTarget, REG(27));
 }
 
 /**
@@ -8058,7 +8070,7 @@ void func_8083DFE0(Player* this, f32* speedTarget, s16* yawTarget) {
         }
     } else {
         Math_AsymStepToF(&this->speedXZ, *speedTarget, 0.05f, 0.1f);
-        Math_ScaledStepToS(&this->yaw, *yawTarget, 200);
+        Math_RotationStepToS(&this->yaw, *yawTarget, 200);
     }
 }
 
@@ -8611,7 +8623,7 @@ s32 func_8083F360(PlayState* play, Player* this, f32 arg1, f32 arg2, f32 arg3, f
         wallPolyNormalX = COLPOLY_GET_NORMAL(wallPoly->normal.x);
         wallPolyNormalZ = COLPOLY_GET_NORMAL(wallPoly->normal.z);
         temp = Math_Atan2S(-wallPolyNormalZ, -wallPolyNormalX);
-        Math_ScaledStepToS(&this->actor.shape.rot.y, temp, 800);
+        Math_RotationStepToS(&this->actor.shape.rot.y, temp, 800);
 
         this->yaw = this->actor.shape.rot.y;
         this->actor.world.pos.x = sp54.x - (Math_SinS(this->actor.shape.rot.y) * arg2);
@@ -9109,7 +9121,7 @@ void Player_Action_IdleHostile(Player* this, PlayState* play) {
 
         // Small yaw adjustment, only if not ongoing melee attack animation
         if (!(this->stateFlags3 & PLAYER_STATE3_ENDING_MELEE_ATTACK)) {
-            Math_ScaledStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
+            Math_RotationStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
         }
     }
 }
@@ -9333,7 +9345,7 @@ void Player_Action_Idle(Player* this, PlayState* play) {
                 return;
             }
 
-            Math_ScaledStepToS(&this->actor.shape.rot.y, yawTarget, 1200);
+            Math_RotationStepToS(&this->actor.shape.rot.y, yawTarget, 1200);
             this->yaw = this->actor.shape.rot.y;
 
             if (Player_GetIdleAnim(this) == this->skelAnime.animation) {
@@ -9435,7 +9447,7 @@ void Player_Action_SlowSidewalk(Player* this, PlayState* play) {
         }
 
         Math_AsymStepToF(&this->speedXZ, speedTarget * 0.4f, 1.5f, 1.5f);
-        Math_ScaledStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
+        Math_RotationStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
     }
 }
 
@@ -9548,7 +9560,7 @@ void Player_Action_Backwalk(Player* this, PlayState* play) {
             s16 yawDiff = yawTarget - this->yaw;
 
             Math_AsymStepToF(&this->speedXZ, speedTarget * 1.5f, 1.5f, 2.0f);
-            Math_ScaledStepToS(&this->yaw, yawTarget, yawDiff * 0.1f);
+            Math_RotationStepToS(&this->yaw, yawTarget, yawDiff * 0.1f);
 
             if ((speedTarget == 0.0f) && (this->speedXZ == 0.0f)) {
                 Player_SetupIdleParallel(this, play);
@@ -9673,7 +9685,7 @@ void Player_Action_FastSidewalk(Player* this, PlayState* play) {
             } else {
                 speedTarget *= 0.9f;
                 Math_AsymStepToF(&this->speedXZ, speedTarget, 2.0f, 3.0f);
-                Math_ScaledStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
+                Math_RotationStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
             }
         }
     }
@@ -9717,7 +9729,7 @@ void Player_Action_TurnInPlace(Player* this, PlayState* play) {
         if (speedTarget != 0.0f) {
             this->actor.shape.rot.y = yawTarget;
             Player_SetupRunWalk(this, play);
-        } else if (Math_ScaledStepToS(&this->actor.shape.rot.y, yawTarget, this->turnRate)) {
+        } else if (Math_RotationStepToS(&this->actor.shape.rot.y, yawTarget, this->turnRate)) {
             Player_SetupIdlePlayOnce(this, play);
         }
 
@@ -9736,9 +9748,9 @@ void func_80841CC4(Player* this, s32 arg1, PlayState* play) {
         target = CLAMP(sFloorShapePitch, -10922, 10922);
     }
 
-    Math_ScaledStepToS(&this->unk_89C, target, 400);
+    Math_RotationStepToS(&this->unk_89C, target, 400);
 
-    if ((this->modelAnimType == PLAYER_ANIMTYPE_3) || ((this->unk_89C == 0) && (this->unk_6C4 <= 0.0f))) {
+    if ((this->modelAnimType == PLAYER_ANIMTYPE_3) || ((this->unk_89C == 0) && (this->quicksandEffect <= 0.0f))) {
         if (arg1 == 0) {
             LinkAnimation_LoadToJoint(play, &this->skelAnime,
                                       GET_PLAYER_ANIM(PLAYER_ANIMGROUP_walk, this->modelAnimType), this->moveFrame);
@@ -9752,7 +9764,7 @@ void func_80841CC4(Player* this, s32 arg1, PlayState* play) {
     if (this->unk_89C != 0) {
         rate = this->unk_89C / 10922.0f;
     } else {
-        rate = this->unk_6C4 * 0.0006f;
+        rate = this->quicksandEffect * 0.0006f;
     }
 
     rate *= fabsf(this->speedXZ) * 0.5f;
@@ -10310,9 +10322,9 @@ void Player_Action_ShieldCrouch(Player* this, PlayState* play) {
             sp46 = 50;
         }
 
-        Math_ScaledStepToS(&this->actor.focus.rot.x, sp4C, sp48);
+        Math_RotationStepToS(&this->actor.focus.rot.x, sp4C, sp48);
         this->upperLimbRot.x = this->actor.focus.rot.x;
-        Math_ScaledStepToS(&this->upperLimbRot.y, sp4A, sp46);
+        Math_RotationStepToS(&this->upperLimbRot.y, sp4A, sp46);
 
         // If doing crouch stab. (av1.isCrouchStabbing is set to true by Player_TryCrouchStab below)
         if (this->av1.isCrouchStabbing != false) {
@@ -11032,7 +11044,7 @@ s32 Player_ReleaseSpinAttack(Player* this, PlayState* play) {
         if (!CHECK_BTN_ALL(sControlInput->cur.button, BTN_B)) {
             s32 meleeWeaponAnimation;
 
-            if ((this->wv1.spinAttackCharge >= 0.85f) || Player_CanSpinAttack(this)) {
+            if ((this->wv1.spinAttackCharge >= 0.85f) || Player_CanQuickspin(this)) {
                 meleeWeaponAnimation = sBigSpinAttack[Player_HoldsTwoHandedWeapon(this)];
             } else {
                 meleeWeaponAnimation = sSpinAttack[Player_HoldsTwoHandedWeapon(this)];
@@ -11068,7 +11080,7 @@ void Player_SetupSpinChargeLeftRight(Player* this, PlayState* play) {
 void Player_AbortSpinAttackCharge(Player* this, PlayState* play) {
     Player_SetupIdleKeepSetAnim(this, play);
     Player_InactivateMeleeWeapon(this);
-    Player_AnimChangeOnceMorph(play, this, sEndSpinCharge[Player_HoldsTwoHandedWeapon(this)]);
+    Player_AnimChangeOnceMorph(play, this, sEndSpinChargeAnim[Player_HoldsTwoHandedWeapon(this)]);
     this->yaw = this->actor.shape.rot.y;
 }
 
@@ -11192,7 +11204,7 @@ void Player_Action_ChargeSpinAttackForwardBack(Player* this, PlayState* play) {
         }
 
         Math_AsymStepToF(&this->speedXZ, speedTarget * 0.2f, 1.0f, 0.5f);
-        Math_ScaledStepToS(&this->yaw, yawTarget, sp44 * 0.1f);
+        Math_RotationStepToS(&this->yaw, yawTarget, sp44 * 0.1f);
 
         if ((speedTarget == 0.0f) && (this->speedXZ == 0.0f)) {
             Player_SetupSpinChargeNeutral(this, play);
@@ -11261,7 +11273,7 @@ void Player_Action_ChargeSpinAttackLeftRight(Player* this, PlayState* play) {
         }
 
         Math_AsymStepToF(&this->speedXZ, speedTarget * 0.2f, 1.0f, 0.5f);
-        Math_ScaledStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
+        Math_RotationStepToS(&this->yaw, yawTarget, absDiff * 0.1f);
 
         if ((speedTarget == 0.0f) && (this->speedXZ == 0.0f) && (absSpeed == 0.0f)) {
             Player_SetupSpinChargeNeutral(this, play);
@@ -11569,7 +11581,7 @@ void Player_Action_LiftActor(Player* this, PlayState* play) {
             this->unk_3BC.y = interactRangeActor->shape.rot.y - this->actor.shape.rot.y;
         }
     } else {
-        Math_ScaledStepToS(&this->unk_3BC.y, 0, 4000);
+        Math_RotationStepToS(&this->unk_3BC.y, 0, 4000);
     }
 }
 
@@ -12104,7 +12116,7 @@ void Player_ApproachZeroBinang(s16* pValue) {
     step = ABS(*pValue) * 100.0f / 1000.0f;
     step = CLAMP(step, 400, 4000);
 
-    Math_ScaledStepToS(pValue, 0, step);
+    Math_RotationStepToS(pValue, 0, step);
 }
 
 void func_80847298(Player* this) {
@@ -13088,7 +13100,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
             this->spinAttackStartTimer--;
         }
 
-        Math_ScaledStepToS(&this->unk_6C2, 0, 400);
+        Math_RotationStepToS(&this->unk_6C2, 0, 400);
 
         FaceChange_UpdateBlinking(&this->faceChange, 20, 80, 6);
         this->actor.shape.face = this->faceChange.face + ((play->gameplayFrames & 32) ? 0 : 3);
@@ -13126,7 +13138,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
                     step = (fabsf(this->speedXZ) * 700.0f) - (fabsf(this->actor.speed) * 100.0f);
                     step = CLAMP(step, 0, 1350);
 
-                    Math_ScaledStepToS(&this->actor.world.rot.y, yawTarget, step);
+                    Math_RotationStepToS(&this->actor.world.rot.y, yawTarget, step);
                 }
 
                 if ((this->speedXZ == 0.0f) && (this->actor.speed != 0.0f)) {
@@ -13197,7 +13209,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
 
             Math_StepToF(&this->pushedSpeed, conveyorSpeed, conveyorSpeed * 0.1f);
 
-            Math_ScaledStepToS(&this->pushedYaw, sConveyorYaw,
+            Math_RotationStepToS(&this->pushedYaw, sConveyorYaw,
                                ((this->stateFlags1 & PLAYER_STATE1_IN_WATER) ? 400.0f : 800.0f) * conveyorSpeed);
         } else if (this->pushedSpeed != 0.0f) {
             Math_StepToF(&this->pushedSpeed, 0.0f, (this->stateFlags1 & PLAYER_STATE1_IN_WATER) ? 0.5f : 1.0f);
@@ -13730,7 +13742,7 @@ void Player_GetSwimSpeedAndYaw(Player* this, f32* speed, f32 speedTarget, s16 ya
     }
 
     Math_AsymStepToF(speed, speedTarget * 0.8f, swimFrame, (fabsf(*speed) * 0.02f) + 0.05f);
-    Math_ScaledStepToS(&this->yaw, yawTarget, 1600);
+    Math_RotationStepToS(&this->yaw, yawTarget, 1600);
 }
 
 /**
@@ -14135,7 +14147,7 @@ void Player_Action_Hanging(Player* this, PlayState* play) {
         }
     }
 
-    Math_ScaledStepToS(&this->actor.shape.rot.y, this->yaw, 0x800);
+    Math_RotationStepToS(&this->actor.shape.rot.y, this->yaw, 0x800);
 
     if (this->av1.actionVar1 != 0) {
         Player_GetMovementSpeedAndYaw(this, &speedTarget, &yawTarget, SPEED_MODE_LINEAR, play);
@@ -15093,7 +15105,7 @@ void Player_Action_Diving(Player* this, PlayState* play) {
             }
 
             Player_PlaySwimDiveAnimation(play, this, sControlInput, fabsf(this->actor.velocity.y));
-            Math_ScaledStepToS(&this->unk_6C2, -10000, 800);
+            Math_RotationStepToS(&this->unk_6C2, -10000, 800);
 
             if (sp2C > 8.0f) {
                 sp2C = 8.0f;
@@ -15398,7 +15410,7 @@ void Player_Action_GetItem(Player* this, PlayState* play) {
 
         // 3) Chest (av2 = 2) and 1) non-chest (av2 = 1): during demonstration animation
         if (this->skelAnime.animation == &gPlayerAnim_link_demo_get_itemB) {
-            Math_ScaledStepToS(&this->actor.shape.rot.y, Camera_GetCamDirYaw(GET_ACTIVE_CAM(play)) + 0x8000, 4000);
+            Math_RotationStepToS(&this->actor.shape.rot.y, Camera_GetCamDirYaw(GET_ACTIVE_CAM(play)) + 0x8000, 4000);
         }
 
         if (LinkAnimation_OnFrame(&this->skelAnime, 21.0f)) {
@@ -15677,7 +15689,7 @@ void Player_Action_ExchangeItem(Player* this, PlayState* play) {
 
             Player_StartTalking(play, talkActor);
         } else {
-            GetItemEntry* giEntry = &sGetItemTable[D_80854528[this->exchangeItemId - 1] - 1];
+            GetItemEntry* giEntry = &sGetItemTable[sExchangeItemGIList[this->exchangeItemId - 1] - 1];
 
             if (this->itemAction >= PLAYER_IA_ZELDAS_LETTER) {
                 this->giDrawID = ABS(giEntry->gi);
@@ -15791,7 +15803,7 @@ void Player_Action_SlideOnSlope(Player* this, PlayState* play) {
         }
 
         Math_SmoothStepToS(&this->yaw, downwardSlopeYaw, 10, 4000, 800);
-        Math_ScaledStepToS(&this->actor.shape.rot.y, shapeYawTarget, 2000);
+        Math_RotationStepToS(&this->actor.shape.rot.y, shapeYawTarget, 2000);
     }
 }
 
@@ -16232,7 +16244,7 @@ void Player_Action_MeleeAttack(Player* this, PlayState* play) {
                 shockwavePos.y = Player_RelativeRaycastDown2(play, this, &D_80854A40, &shockwavePos);
                 sp2C = this->actor.world.pos.y - shockwavePos.y;
 
-                Math_ScaledStepToS(&this->actor.focus.rot.x, Math_Atan2S(45.0f, sp2C), 800);
+                Math_RotationStepToS(&this->actor.focus.rot.x, Math_Atan2S(45.0f, sp2C), 800);
                 func_80836AB8(this, true);
 
                 if ((((this->meleeWeaponAnimation == PLAYER_MWA_HAMMER_FORWARD) &&
@@ -16500,7 +16512,7 @@ void Player_Action_HookshotFly(Player* this, PlayState* play) {
         this->stateFlags1 |= PLAYER_STATE1_HOOKSHOT_LAND;
     } else if ((this->skelAnime.animation != &gPlayerAnim_link_hook_fly_start) || (4.0f <= this->skelAnime.curFrame)) {
         this->actor.gravity = 0.0f;
-        Math_ScaledStepToS(&this->actor.shape.rot.x, this->actor.world.rot.x, 0x800);
+        Math_RotationStepToS(&this->actor.shape.rot.x, this->actor.world.rot.x, 0x800);
         Player_RequestRumble(this, 100, 2, 100, 0);
     }
 }
@@ -16933,7 +16945,7 @@ void func_808513BC(PlayState* play, Player* this, CsCmdActorCue* cue) {
             this->av1.actionVar1 = 1;
         } else {
             Player_PlaySwimDiveAnimation(play, this, NULL, fabsf(this->actor.velocity.y));
-            Math_ScaledStepToS(&this->unk_6C2, -10000, 800);
+            Math_RotationStepToS(&this->unk_6C2, -10000, 800);
             Player_GetSwimSpeedAndYaw(this, &this->actor.velocity.y, 4.0f, this->yaw);
         }
         return;

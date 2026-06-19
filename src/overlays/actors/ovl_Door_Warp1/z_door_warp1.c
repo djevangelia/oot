@@ -750,8 +750,8 @@ void DoorWarp1_AdultWarpOut(DoorWarp1* this, PlayState* play) {
                 gSaveContext.nextCutsceneIndex = CS_INDEX_NONE;
             }
         } else if (play->sceneId == SCENE_WATER_TEMPLE_BOSS) {
-            if (!GET_EVENTCHKINF(EVENTCHKINF_4A)) {
-                SET_EVENTCHKINF(EVENTCHKINF_4A);
+            if (!GET_EVENTCHKINF(EVENTCHKINF_ENTER_WATER_TEMPLE_BLUE_WARP)) {
+                SET_EVENTCHKINF(EVENTCHKINF_ENTER_WATER_TEMPLE_BLUE_WARP);
                 Item_Give(play, ITEM_MEDALLION_WATER);
                 play->nextEntranceIndex = ENTR_CHAMBER_OF_THE_SAGES_0;
                 gSaveContext.nextCutsceneIndex = CS_INDEX_NONE;

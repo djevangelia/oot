@@ -1207,7 +1207,7 @@ void CutsceneCmd_Destination(PlayState* play, CutsceneContext* csCtx, CsCmdDesti
                 // unless all 3 dungeons have been cleared. In that case, the destination is the Temple of Time which
                 // plays a cutscene where the door opens.
                 if (GET_EVENTCHKINF(EVENTCHKINF_48) && GET_EVENTCHKINF(EVENTCHKINF_49) &&
-                    GET_EVENTCHKINF(EVENTCHKINF_4A)) {
+                    GET_EVENTCHKINF(EVENTCHKINF_ENTER_WATER_TEMPLE_BLUE_WARP)) {
                     play->nextEntranceIndex = ENTR_TEMPLE_OF_TIME_0;
                     play->transitionTrigger = TRANS_TRIGGER_START;
                     gSaveContext.save.cutsceneIndex = CS_INDEX_3;
@@ -2429,7 +2429,7 @@ void Cutscene_HandleConditionalTriggers(PlayState* play) {
             gSaveContext.save.cutsceneIndex = CS_INDEX_0;
         } else if ((gSaveContext.save.entranceIndex == ENTR_KAKARIKO_VILLAGE_0) && LINK_IS_ADULT &&
                    GET_EVENTCHKINF(EVENTCHKINF_48) && GET_EVENTCHKINF(EVENTCHKINF_49) &&
-                   GET_EVENTCHKINF(EVENTCHKINF_4A) && !Flags_GetEventChkInf(EVENTCHKINF_AA)) {
+                   GET_EVENTCHKINF(EVENTCHKINF_ENTER_WATER_TEMPLE_BLUE_WARP) && !Flags_GetEventChkInf(EVENTCHKINF_AA)) {
             Flags_SetEventChkInf(EVENTCHKINF_AA);
             gSaveContext.save.cutsceneIndex = CS_INDEX_0;
         } else if ((gSaveContext.save.entranceIndex == ENTR_LOST_WOODS_9) && !Flags_GetEventChkInf(EVENTCHKINF_C1)) {
