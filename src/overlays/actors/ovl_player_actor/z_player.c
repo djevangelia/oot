@@ -10436,7 +10436,7 @@ void Player_Action_ShieldBlock(Player* this, PlayState* play) {
 
 /**
  * Taking damage when not running.
- * This action is setup early in the gameframe and thus run the same frame
+ * This action is setup early in the gameframe and thus run on the same frame
  * (replacing the previous player action).
  */
 void Player_Action_DamageReaction(Player* this, PlayState* play) {
