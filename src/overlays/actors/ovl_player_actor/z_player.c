@@ -1839,8 +1839,8 @@ void Player_DetachHeldActor(PlayState* play, Player* this) {
     }
 
     //! @bug Bomb OI/Ocarina items. When the bomb explosion ends, the bomb actor itself clears
-    //! Player->heldActor etc and removes the carry player state. Next frame, Player_UpperAction_CarryActor will
-    //! indirectly call Player_DetachHeldActor to set new upper action. In 1.0 the code above doesn't run, as
+    //! Player->heldActor etc and removes the carry player state. Next frame, `Player_UpperAction_CarryActor` will
+    //! indirectly call `Player_DetachHeldActor` to set new upper action. In 1.0 the code above doesn't run, as
     //! there's no heldActor. In >=1.1 this code runs, and runs before action handlers. If a cutscene item is used the
     //! frame after the bomb actor is destroyed, unk_6AD will be 4 but held item will be none by the time action
     //! handlers run.
@@ -3692,6 +3692,7 @@ void Player_SetupUpperActionCarryActor(Player* this, PlayState* play) {
 s32 Player_UpperAction_CarryActor(Player* this, PlayState* play) {
 #if OOT_VERSION >= NTSC_1_1
     // Ensure that upper item action is same as held item/Player_UpperAction_DefaultNone.
+    // This addition is also part of bomb OI.
     Actor* heldActor = this->heldActor;
 
     if (heldActor == NULL) {
@@ -6620,7 +6621,6 @@ void Player_HandleLeavingGround(Player* this, PlayState* play) {
  * cannot be first person with a non-ranged weapon.)
  * @return new camera mode, CAM_MODE_NORMAL if failed
  */
-
 s32 Player_SetFirstPersonCamera(PlayState* play, Player* this) {
     s32 camMode;
 
@@ -10831,6 +10831,7 @@ void Player_Action_NotOnGround(Player* this, PlayState* play) {
                                           GET_PLAYER_ANIM(PLAYER_ANIMGROUP_jump_climb_hold, this->modelAnimType));
                             this->actor.shape.rot.y = this->yaw += 0x8000;
                             this->stateFlags1 |= PLAYER_STATE1_HANGING;
+                        }
                     }
                 }
             }
@@ -15019,6 +15020,8 @@ void Player_Action_SwimParallelTarget(Player* this, PlayState* play) {
         !Player_DiveResurface(play, this, sControlInput)) {
         Player_GetMovementSpeedAndYaw(this, &speedTarget, &yawTarget, SPEED_MODE_LINEAR, play);
 
+        //! @bug: No case for handling equipping Iron Boots. This allows swim on land glitch.
+        //! Compare with `Player_Action_Swim` which switches to idle if boots equipped.
         if (speedTarget == 0.0f) {
             Player_SetupSwimIdle(play, this);
         } else if (!Player_IsZTargetingWithHostileUpdate(this)) {
@@ -15342,6 +15345,7 @@ static AnimSfxEntry sChildLinkChestOpenSfx[] = {
 
 /**
  * actionVar2 is set to 1 if not chest, 0 if chest, 20 if GI_HEART_CONTAINER_2
+ * (2 if dive resurface?)
  */
 void Player_Action_GetItem(Player* this, PlayState* play) {
     s32 cond;
