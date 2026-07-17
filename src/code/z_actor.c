@@ -935,6 +935,11 @@ void Actor_SetScale(Actor* actor, f32 scale) {
     actor->scale.x = scale;
 }
 
+/**
+ * Set CPU segment 6 to the actor's object loaded in object memory space.
+ * Done for every actor before every init, update and draw.
+ * Otherwise correct object data such as display lists cannot be loaded.
+ */
 void Actor_SetObjectDependency(PlayState* play, Actor* actor) {
     gSegments[6] = OS_K0_TO_PHYSICAL(play->objectCtx.slots[actor->objectSlot].segment);
 }

@@ -4174,6 +4174,7 @@ s32 OnePointCutscene_SetInfo(PlayState* play, s16 subCamId, s16 csId, Actor* act
             break;
         }
 
+        // Dins
         case 1100: {
             s32 tempDiff = play->state.frames - sPrevFrameCs1100;
 

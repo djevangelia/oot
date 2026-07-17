@@ -1165,6 +1165,7 @@ OcarinaSongButtons gOcarinaSongButtons[OCARINA_SONG_MAX] = {
 u32 sAudioUpdateStartTime;
 u32 sAudioUpdateEndTime;
 #endif
+
 f32 D_8016B7A8;
 f32 D_8016B7AC;
 f32 D_8016B7B0;
@@ -1174,6 +1175,7 @@ FreqLerp sWaterfallFreqScaleLerp;
 f32 D_8016B7D8;
 s8 D_8016B7DC;
 f32 D_8016B7E0;
+
 #if DEBUG_FEATURES
 u16 D_8016B7E4;
 struct {
@@ -1181,15 +1183,18 @@ struct {
     u16 num;
 } sAudioScrPrtBuf[SCROLL_PRINT_BUF_SIZE];
 #endif
+
 u8 sRiverSoundMainBgmVol;
 u8 sRiverSoundMainBgmCurrentVol;
 u8 sRiverSoundMainBgmLower;
 u8 sRiverSoundMainBgmRestore;
 u8 sGanonsTowerVol;
 SfxPlayerState sSfxChannelState[0x10];
+
 #if DEBUG_FEATURES
 char sBinToStrBuf[0x20];
 #endif
+
 u8 sMalonSingingTimer;
 #if DEBUG_FEATURES
 u8 sAudioSpecPeakNumNotes[0x12];

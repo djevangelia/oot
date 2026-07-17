@@ -2876,7 +2876,7 @@ void Player_StartChangingHeldItem(Player* this, PlayState* play) {
     s8 heldItemIA;
     s32 nextAnimType;
 
-    // IA of current held item (= the new item). This is NOT current (and old) heldItemAction
+    // IA of current held item (= the new item). This is NOT current (and soon old) heldItemAction
     heldItemIA = Player_ItemToItemAction(this->heldItemId);
 
     Player_SetUpperActionFunc(this, Player_UpperAction_ChangeHeldItem);
@@ -4907,6 +4907,7 @@ s32 Player_CanQuickspin(Player* this) {
     }
 
     // Angle is -1 if low magnitude
+    //! @bug Doesn't use this->controlStickDataIndex as index, always starts at 0
     iter = &this->controlStickSpinAngles[0];
     iter2 = &doubleAngle[0];
 
@@ -6702,6 +6703,7 @@ void Player_SetupCastMagicSpell(PlayState* play, Player* this, s32 magicSpell) {
 
     LinkAnimation_PlayOnceSetSpeed(play, &this->skelAnime, &gPlayerAnim_link_magic_tame, 0.83f);
 
+    // Dins
     if (magicSpell == 5) {
         this->subCamId = OnePointCutscene_Init(play, 1100, -101, NULL, CAM_ID_MAIN);
     } else {
@@ -6897,7 +6899,7 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
             } else if (Player_SetFirstPersonCamera(play, this) != CAM_MODE_NORMAL) {
                 if (!(this->stateFlags1 & PLAYER_STATE1_RIDING)) {
                     Player_SetupAction(play, this, Player_Action_InFirstPerson, 1);
-                    this->av2.actionVar2 = 13;
+                    this->av2.firstPersonAimDelay = 13;
                     Player_ZeroHeadUpperRotationSetFocusY(this);
                 }
                 this->stateFlags1 |= PLAYER_STATE1_FIRST_PERSON;
@@ -8222,10 +8224,12 @@ void func_8083E4C4(PlayState* play, Player* this, GetItemEntry* giEntry) {
 
 /**
  * Getting items (holding them above the head), opening chests, and lifting things.
+ * Items from underwater are handled by Player_Action_DiveFinish.
  */
 s32 Player_ActionHandler_GetItemLift(Player* this, PlayState* play) {
     Actor* interactedActor;
 
+    // Get non-chest items (positive getItemId)
     if (DEBUG_iREG_67 ||
         (((interactedActor = this->interactRangeActor) != NULL) && TitleCard_Clear(play, &play->actorCtx.titleCtx))) {
         if (DEBUG_iREG_67 || (this->getItemId > GI_NONE)) {
@@ -8264,7 +8268,7 @@ s32 Player_ActionHandler_GetItemLift(Player* this, PlayState* play) {
                 func_8083E4C4(play, this, giEntry);
                 this->getItemId = GI_NONE;
             }
-            // Opening chests
+            // Opening chests (negative getItemId)
         } else if (CHECK_BTN_ALL(sControlInput->press.button, BTN_A) &&
                    !(this->stateFlags1 & PLAYER_STATE1_CARRYING_ACTOR) && !(this->stateFlags2 & PLAYER_STATE2_DEEP_WATER)) {
             if (this->getItemId != GI_NONE) {
@@ -8393,6 +8397,7 @@ s32 Player_ActionHandler_DropThrow(Player* this, PlayState* play) {
     return false;
 }
 
+// Start climbing
 s32 func_8083EC18(Player* this, PlayState* play, u32 wallFlags) {
     if (this->yDistToLedge >= 79.0f) {
         if (!(this->stateFlags1 & PLAYER_STATE1_IN_WATER) || (this->currentBoots == PLAYER_BOOTS_IRON) ||
@@ -8590,6 +8595,7 @@ s32 Player_TryEnteringCrawlspace(Player* this, PlayState* play, u32 interactWall
     return false;
 }
 
+// Used for climb and push/pull checks
 s32 func_8083F360(PlayState* play, Player* this, f32 arg1, f32 arg2, f32 arg3, f32 arg4) {
     CollisionPoly* wallPoly;
     s32 wallBgId;
@@ -8708,7 +8714,7 @@ void Player_SetupGrabHoldBlock(Player* this, LinkAnimationHeader* anim, PlayStat
 }
 
 /**
- * Entering crawlspaces and  grabbing onto grabbable objects that are walls
+ * Entering crawlspaces and grabbing onto movable dynapoly
  * such as movable blocks, heavy blocks, Forest Temple rotating wall etc.
  * @return true if enter crawlspace/grab
  */
@@ -8820,7 +8826,7 @@ void Player_SetupNotOnGroundFromClimb(Player* this, PlayState* play) {
 }
 
 /**
- * Check if player is still on a climbable wall/ladder an hasn't pressed A
+ * Check if player is still on a climbable wall/ladder and hasn't pressed A
  * @return true if detaching, else false
  */
 s32 Player_DetachFromClimb(Player* this, PlayState* play) {
@@ -13505,6 +13511,7 @@ void Player_DrawGameplay(PlayState* play, Player* this, s32 lod, Gfx* cullDList,
                     this->currentTunic, this->currentBoots, this->actor.shape.face, overrideLimbDraw,
                     Player_PostLimbDrawGameplay, this);
 
+    // Draw masks
     if ((overrideLimbDraw == Player_OverrideLimbDrawGameplayDefault) && (this->currentMask != PLAYER_MASK_NONE)) {
         Mtx* bunnyEarMtx = GRAPH_ALLOC(play->state.gfxCtx, 2 * sizeof(Mtx));
 
@@ -13535,6 +13542,7 @@ void Player_DrawGameplay(PlayState* play, Player* this, s32 lod, Gfx* cullDList,
         gSPDisplayList(POLY_OPA_DISP++, sMaskDlists[this->currentMask - 1]);
     }
 
+    // Draw hover effect
     if ((this->currentBoots == PLAYER_BOOTS_HOVER) && !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) &&
         !(this->stateFlags1 & PLAYER_STATE1_RIDING) && ((u32)this->hoverBootsTimer != 0)) {
         static s32 D_8085486C = 255;
@@ -13844,18 +13852,21 @@ void Player_Action_InFirstPerson(Player* this, PlayState* play) {
     if ((this->csAction != PLAYER_CSACTION_NONE) || (this->unk_6AD == UNK6AD_NORMAL_CAMERA) || (this->unk_6AD >= 4) ||
         Player_UpdateHostileLockOn(this) || (this->focusActor != NULL) ||
         (Player_SetFirstPersonCamera(play, this) == CAM_MODE_NORMAL) ||
-        // If holding a first person weapon
+        // When holding a first person weapon
         (((this->unk_6AD == UNK6AD_FIRST_PERSON_ARMED) &&
           (CHECK_BTN_ANY(sControlInput->press.button, BTN_A | BTN_B | BTN_R) || Player_FriendlyLockOnOrParallel(this) ||
            (!Player_IsAimingRanged(this) && !Player_IsAimingBoomerang(this)))) ||
-         // If not holding a first person weapon
+         // When not holding a first person weapon
          ((this->unk_6AD == UNK6AD_FIRST_PERSON_UNARMED) &&
           CHECK_BTN_ANY(sControlInput->press.button,
                         BTN_A | BTN_B | BTN_R | BTN_CUP | BTN_CDOWN | BTN_CLEFT | BTN_CRIGHT)))) {
+
         // Set next action among other things
         Player_ExitCutsceneFirstPerson(this, play);
         Sfx_PlaySfxCentered(NA_SE_SY_CAMERA_ZOOM_UP);
-    } else if ((DECR(this->av2.actionVar2) == 0) || (this->unk_6AD != UNK6AD_FIRST_PERSON_ARMED)) {
+
+    // av2.firstPersonAimDelay is set to 13 on setup. Cannot aim weapon until 0
+    } else if ((DECR(this->av2.firstPersonAimDelay) == 0) || (this->unk_6AD != UNK6AD_FIRST_PERSON_ARMED)) {
         if (Player_HasFiredHookshot(this)) {
             this->unk_6AE_rotFlags |= UNK6AE_ROT_FOCUS_X | UNK6AE_ROT_FOCUS_Y | UNK6AE_ROT_UPPER_X;
         } else {
@@ -14250,8 +14261,8 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
 
     this->skelAnime.playSpeed = animSpeed * speed;
 
-    if (this->av2.leftFootAbove >= 0) {
-        // If climbing moving wall
+    if (this->av2.climbAnimFinished >= 0) {
+        // If climbing moving wall (Spirit Temple)
         if ((this->actor.wallPoly != NULL) && (this->actor.wallBgId != BGCHECK_SCENE)) {
             wallPolyActor = DynaPoly_GetActor(&play->colCtx, this->actor.wallBgId);
             if (wallPolyActor != NULL) {
@@ -14265,11 +14276,11 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
         func_8083F360(play, this, 26.0f, this->ageProperties->unk_3C, 50.0f, -20.0f);
     }
 
-    if ((this->av2.leftFootAbove < 0) || !Player_DetachFromClimb(this, play)) {
+    if ((this->av2.climbAnimFinished < 0) || !Player_DetachFromClimb(this, play)) {
         if (LinkAnimation_Update(play, &this->skelAnime)) {
-            // Starting climb animation ended, set actionVar2 to non-negative
-            if (this->av2.leftFootAbove < 0) {
-                this->av2.leftFootAbove = ABS(this->av2.leftFootAbove) & 1;
+            // Starting climb animation ended, set actionVar2 to non-negative (= from animation to foot position marker)
+            if (this->av2.climbAnimFinished < 0) {
+                this->av2.leftFootAbove = ABS(this->av2.climbAnimFinished) & 1;
                 return;
             }
 
@@ -14347,10 +14358,10 @@ void Player_Action_Climbing(Player* this, PlayState* play) {
     }
 
     // -2 = start from below (climbwall and ladder), -4 = start from above (only ladder)
-    if (this->av2.leftFootAbove < 0) {
-        if (((this->av2.leftFootAbove == -2) &&
+    if (this->av2.climbAnimFinished < 0) {
+        if (((this->av2.climbAnimFinished == -2) &&
              (LinkAnimation_OnFrame(&this->skelAnime, 14.0f) || LinkAnimation_OnFrame(&this->skelAnime, 29.0f))) ||
-            ((this->av2.leftFootAbove == -4) &&
+            ((this->av2.climbAnimFinished == -4) &&
              (LinkAnimation_OnFrame(&this->skelAnime, 22.0f) || LinkAnimation_OnFrame(&this->skelAnime, 35.0f) ||
               LinkAnimation_OnFrame(&this->skelAnime, 49.0f) || LinkAnimation_OnFrame(&this->skelAnime, 55.0f)))) {
             func_8084BEE4(this);
@@ -15020,7 +15031,7 @@ void Player_Action_SwimParallelTarget(Player* this, PlayState* play) {
         !Player_DiveResurface(play, this, sControlInput)) {
         Player_GetMovementSpeedAndYaw(this, &speedTarget, &yawTarget, SPEED_MODE_LINEAR, play);
 
-        //! @bug: No case for handling equipping Iron Boots. This allows swim on land glitch.
+        //! @bug:No case for handling equipping Iron Boots. This allows swim on land glitch.
         //! Compare with `Player_Action_Swim` which switches to idle if boots equipped.
         if (speedTarget == 0.0f) {
             Player_SetupSwimIdle(play, this);
@@ -15148,6 +15159,7 @@ s32 Player_GetItemTextboxSfx(PlayState* play, Player* this) {
     }
 
     if (this->av1.messageItemSfxDone == 0) {
+        //! @bug GIM bypasses get item action handler, so negative getItemId can appear here.
         giEntry = &sGetItemTable[this->getItemId - 1];
         this->av1.messageItemSfxDone = 1;
 
@@ -16167,8 +16179,8 @@ void Player_UpdateBunnyEars(Player* this) {
  * @return true if using bottle, fishing rod, melee weapon, otherwise false
  */
 s32 Player_ActionHandler_MeleeBottleFish(Player* this, PlayState* play) {
-    if (Player_SetupBottleFishing(play, this) == 0) {
-        if (Player_UseMeleeWeapon(this) != 0) {
+    if (!Player_SetupBottleFishing(play, this)) {
+        if (Player_UseMeleeWeapon(this)) {
             s32 meleeWeaponAnimation = Player_GetMeleeWeaponAnimFromStickInput(this);
 
             Player_SetupMeleeAttack(play, this, meleeWeaponAnimation);

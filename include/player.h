@@ -958,7 +958,9 @@ typedef struct Player {
         s16 liftFinished; // Player_Action_LiftSilverRock: Flag that the rock lift animation is finished, and player is holding the rock
         s16 airPhase; // Player_Action_NotOnGround: Phase of jump/airborne
         s16 textboxStarted; // Player_Action_UseSetFaroresWind: True if first cast textbox has been started
-        s16 leftFootAbove;
+        s16 climbAnimFinished; // Player_Action_Climbing: Negative if start climb animation has not finished yet
+        s16 leftFootAbove; // Player_Action_Climbing: 1 = left foot higher up during climb
+        s16 firstPersonAimDelay; // Player_Action_InFirstPerson: Delay from entering first person mode and able to aim with ranged weapon
     } av2; // "Action Variable 2": context dependent variable that has different meanings depending on what action is currently running
 
     /* 0x0854 */ f32 rippleVar; // Used when spawning ripples in water

@@ -1675,6 +1675,8 @@ s16 Play_ChangeCameraStatus(PlayState* this, s16 camId, s16 status) {
 void Play_ClearCamera(PlayState* this, s16 camId) {
     s16 camIdx = (camId == CAM_ID_NONE) ? this->activeCamId : camId;
 
+    //! @bug Even if main camera, clearing it is not prevented, so game can crash due to
+    //! null main camera pointer. (Spirit Temple mirror room, light both chest suns at the same time)
     if (camIdx == CAM_ID_MAIN) {
         PRINTF(VT_COL(RED, WHITE) "camera control: error: never clear camera !!\n" VT_RST);
     }
