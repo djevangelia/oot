@@ -2094,7 +2094,7 @@ void Player_AnimChangeLoopSlowMorph(PlayState* play, Player* this, LinkAnimation
  * If currently playing play once animation is done, start looping the provided animation.
  * @return true if starting loop, otherwise false
  */
-s32 Player_IfAnimDoneLoopThis(PlayState* play, Player* this, LinkAnimationHeader* anim) {
+s32 Player_AnimPlayLoopOnceFinished(PlayState* play, Player* this, LinkAnimationHeader* anim) {
     if (LinkAnimation_Update(play, &this->skelAnime)) {
         Player_AnimPlayLoop(play, this, anim);
         return true;
@@ -6389,7 +6389,7 @@ void Player_SetupGetItem(PlayState* play, Player* this) {
 
     if (this->getItemId == GI_HEART_CONTAINER_2) {
         this->av2.actionVar2 = 20;
-    } else if (this->getItemId >= 0) { // Not chest
+    } else if (this->getItemId >= GI_NONE) { // Not chest
         this->av2.actionVar2 = 1;
     } else { // Chest item, invert id
         this->getItemId = -this->getItemId;
@@ -6487,7 +6487,7 @@ s32 Player_GrabLedgeFromAbove(Player* this, PlayState* play) {
 
             climb = (sPrevFloorProperty == FLOOR_PROPERTY_6); // Either force ledge grab floor...
             if (!climb && (SurfaceType_GetWallFlags(&play->colCtx, wallPoly, bgId) & WALL_FLAG_CLIMBABLE)) {
-                climb = 1; // ... or climbable wall below
+                climb = true; // ... or climbable wall below
             }
 
             Player_SetupHanging(play, this, wallPoly, sp54,
@@ -9992,7 +9992,7 @@ s32 func_8084269C(PlayState* play, Player* this) {
  * Watch as Magic Bean gets planted, then setup idle.
  */
 void Player_Action_PlantMagicBean(Player* this, PlayState* play) {
-    Player_IfAnimDoneLoopThis(play, this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_check_wait, this->modelAnimType));
+    Player_AnimPlayLoopOnceFinished(play, this, GET_PLAYER_ANIM(PLAYER_ANIMGROUP_check_wait, this->modelAnimType));
 
     if (DECR(this->av2.plantBeanTimer) == 0) { // Starts at 80
         if (!Player_ActionHandler_13(this, play)) {
@@ -14027,7 +14027,7 @@ static AnimSfxEntry sBlockPushSfx[] = {
 void Player_Action_PushBlock(Player* this, PlayState* play) {
     this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT | PLAYER_STATE2_PUSH_PULL_CAMERA;
 
-    if (Player_IfAnimDoneLoopThis(play, this, &gPlayerAnim_link_normal_pushing)) {
+    if (Player_AnimPlayLoopOnceFinished(play, this, &gPlayerAnim_link_normal_pushing)) {
         this->av2.actionVar2 = 1;
     } else if (this->av2.actionVar2 == 0) {
         if (LinkAnimation_OnFrame(&this->skelAnime, 11.0f)) {
@@ -14075,7 +14075,7 @@ void Player_Action_PullBlock(Player* this, PlayState* play) {
 
     this->stateFlags2 |= PLAYER_STATE2_GRAB_HOLD | PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT | PLAYER_STATE2_PUSH_PULL_CAMERA;
 
-    if (Player_IfAnimDoneLoopThis(play, this, anim)) {
+    if (Player_AnimPlayLoopOnceFinished(play, this, anim)) {
         this->av2.actionVar2 = 1;
     } else {
         if (this->av2.actionVar2 == 0) {
@@ -14887,7 +14887,7 @@ void Player_SetupSwimHostile(PlayState* play, Player* this) {
  * Used both on the surface and underwater.
  */
 void Player_Action_WaterIdle(Player* this, PlayState* play) {
-    Player_IfAnimDoneLoopThis(play, this, &gPlayerAnim_link_swimer_swim_wait);
+    Player_AnimPlayLoopOnceFinished(play, this, &gPlayerAnim_link_swimer_swim_wait);
     Player_WaterBobbing(this);
 
     if (!Player_IsTalking(play) && !Player_TryActionHandlerList(play, this, sActionHandlerList11, true) &&
