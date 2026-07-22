@@ -742,7 +742,7 @@ typedef struct WeaponInfo {
 #define PLAYER_STATE2_CAN_ACCEPT_TALK_OFFER (1 << 1) // Can accept a talk offer. "Speak" or "Check" is shown on the A button.
 #define PLAYER_STATE2_CAN_CLIMB_GRABBABLE (1 << 2) // Set when player is moving toward a grabbable and climbable object, to change A button action from grab to climb
 #define PLAYER_STATE2_MAKING_NOISE (1 << 3) // Set for one frame by Player_PlayItemNoise for melee attacks, changing items, using masks. Also when fast walking. Allows detection by certain enemies
-#define PLAYER_STATE2_PUSH_PULL (1 << 4) // Set by pushing and pulling actions. Blocks, graves, etc. Often removed by the movable actor! (to limit distance etc.)
+#define PLAYER_STATE2_PUSH_PULL (1 << 4) // Set by pushing and pulling actions. Blocks, graves, etc. Removed by the movable actor! (to limit distance etc.)
 #define PLAYER_STATE2_ONLY_DIRECTION_SHAPEYAW (1 << 5) // See Player_UpdateShapeYaw. Shape yaw can only be adjusted in movement direction.
 #define PLAYER_STATE2_NO_SHAPEYAW_ADJUSTMENT (1 << 6) // See Player_UpdateShapeYaw. Do not adjust shape yaw.
 #define PLAYER_STATE2_GRABBED (1 << 7) // Grabbed by enemy and immobilized, such as Redead, Like like
@@ -837,7 +837,7 @@ typedef struct Player {
     /* 0x03AC */ Actor* heldActor;
     /* 0x03B0 */ Vec3f leftHandPos;
     /* 0x03BC */ Vec3s unk_3BC;
-    /* 0x03C4 */ Actor* grabbedActor; // Actor of DynaPolyActor that is grabbed, pushed or pulled by the player. Blocks, Forest Temple rotating wall etc.
+    /* 0x03C4 */ Actor* grabbedDynaActor; // Actor of DynaPolyActor that is grabbed, pushed or pulled by the player. Blocks, Forest Temple rotating wall etc.
     /* 0x03C8 */ Vec3f rightHandPos; // Used by Hookshot
     /* 0x03D4 */ char unk_3D4[0x058];
     /* 0x042C */ s8 doorType;
