@@ -232,6 +232,10 @@ void ItemShield_Draw(Actor* thisx, PlayState* play) {
     ItemShield* this = (ItemShield*)thisx;
 
     if (!(this->unk_19C & 2)) {
+        //! @bug It is presumed that RSP segment 0xC contains child Link's gCullBackDList. This is not the case
+        //! if something has been drawn between child Link and ItemShield that uses the same segment number,
+        //! such as Jabu tentacles. This will crash.
+        //! Adding gSPSegment(POLY_OPA_DISP++, 0xC, SEGMENTED_TO_VIRTUAL(gCullBackDList)) ensures it is loaded.
         OPEN_DISPS(play->state.gfxCtx, "../z_item_shield.c", 457);
         Gfx_SetupDL_25Opa(play->state.gfxCtx);
         MATRIX_FINALIZE_AND_LOAD(POLY_OPA_DISP++, play->state.gfxCtx, "../z_item_shield.c", 460);

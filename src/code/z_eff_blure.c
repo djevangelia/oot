@@ -1053,3 +1053,22 @@ void EffectBlure_Draw(void* thisx, GraphicsContext* gfxCtx) {
 
     CLOSE_DISPS(gfxCtx, "../z_eff_blure.c", 1823);
 }
+
+// min egen funktion!
+void EffectBlure_ChangeColor(void* thisx, void* newParamsx) {
+    EffectBlure* this = (EffectBlure*)thisx;
+    EffectBlureInit2* newParams = (EffectBlureInit2*)newParamsx;
+    PRINTF(" EffectBlure_ChangeColor: this %x new %x\n", thisx, newParamsx);
+
+    if ((this != NULL) && (newParams != NULL)) {
+        s32 i;
+
+        for (i = 0; i < 4; i++) {
+            this->p1StartColor[i] = newParams->p1StartColor[i];
+            this->p2StartColor[i] = newParams->p2StartColor[i];
+            this->p1EndColor[i] = newParams->p1EndColor[i];
+            this->p2EndColor[i] = newParams->p2EndColor[i];
+        }
+        this->elemDuration = newParams->elemDuration;     // tillägg!
+    }
+}

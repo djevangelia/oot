@@ -1783,6 +1783,8 @@ void Player_ApplyYawFromAnim(Player* this) {
     this->skelAnime.jointTable[1].y = 0;
 }
 
+
+static EffectBlureInit2 swordBlureParams;
 /**
  * Sets a melee weapon to inactive by removing the spin attack release flag (set for non-magic spin attacks,
  * to set the AT colliders), reset meleeWeaponState (if != 0, collision is set every frame = ISG),
@@ -1792,6 +1794,7 @@ void Player_InactivateMeleeWeapon(Player* this) {
     this->stateFlags2 &= ~PLAYER_STATE2_RELEASE_SPIN_ATTACK;
     this->meleeWeaponState = 0;
     this->meleeWeaponInfo[0].active = this->meleeWeaponInfo[1].active = this->meleeWeaponInfo[2].active = false;
+    EffectBlure_ChangeColor(Effect_GetByIndex(this->meleeWeaponEffectIndex), &swordBlureParams);
 }
 
 /**
@@ -7859,7 +7862,7 @@ void Player_WaterUpdate(PlayState* play, Player* this) {
         } else if ((this->stateFlags1 & PLAYER_STATE1_IN_WATER) &&
                    (this->actor.depthInWater < this->ageProperties->stopSwimDepth)) {
             if ((this->skelAnime.movementFlags == 0) && (this->currentBoots != PLAYER_BOOTS_IRON)) {
-                //! @bug That action changes to TurnInPlace when exiting water allows for WESS.
+                //! @bug The fact that action changes to TurnInPlace when exiting water allows for WESS.
                 Player_SetupTurnInPlace(play, this, this->actor.shape.rot.y);
             }
             Player_ExitWater(play, this, this->actor.velocity.y);
@@ -7867,6 +7870,7 @@ void Player_WaterUpdate(PlayState* play, Player* this) {
     }
 }
 
+// Handle quicksand effect, spawn ripples and bubbles
 void func_8083D6EC(PlayState* play, Player* this) {
     Vec3f ripplePos;
 
@@ -8397,8 +8401,9 @@ s32 Player_ActionHandler_DropThrow(Player* this, PlayState* play) {
     return false;
 }
 
-// Start climbing
+// Handle climbable walls/ladders for start climb
 s32 func_8083EC18(Player* this, PlayState* play, u32 wallFlags) {
+    // Wall not low enough for jump
     if (this->yDistToLedge >= 79.0f) {
         if (!(this->stateFlags1 & PLAYER_STATE1_IN_WATER) || (this->currentBoots == PLAYER_BOOTS_IRON) ||
             (this->actor.depthInWater < this->ageProperties->startSwimDepth)) {
@@ -9012,7 +9017,7 @@ void Player_SetMoveFramePlaySfx(Player* this, f32 speed) {
     if ((this->currentBoots == PLAYER_BOOTS_HOVER) && !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) &&
         (this->hoverBootsTimer != 0)) {
         Actor_PlaySfx_Flagged2(&this->actor, NA_SE_PL_HOBBERBOOTS_LV - SFX_FLAG);
-        // Play footsteps depending on frame position of the walk/run cycle
+    // Play footsteps depending on frame position of the walk/run cycle
     } else if (Player_ShouldPlaySteppingSfx(this->moveFrame, speed, 29.0f, 10.0f) ||
                Player_ShouldPlaySteppingSfx(this->moveFrame, speed, 29.0f, 24.0f)) {
         Player_PlaySteppingSfx(this, this->speedXZ);
@@ -9728,7 +9733,7 @@ void Player_Action_TurnInPlace(Player* this, PlayState* play) {
     //! Another possible fix is to gradually kill speed by calling `Player_DecelerateToZero`
     //! here, which plenty of other "standing" actions do.
 
-    //! @bug This action handler list doesn't contain action handler 13 (which most others do).
+    //! @bug This action handler list doesn't contain action handler 0 or 13 (which most others do).
     //! This leads to using cutscene items getting buffered (unk_6AD remains 4) until for instance
     //! entering idle action, which allows for ESS OI/Ocarina items.
 
@@ -9980,6 +9985,7 @@ s32 func_8084269C(PlayState* play, Player* this) {
         func_8084260C(&this->actor.shape.feetPos[FOOT_LEFT], &pos,
                       this->actor.floorHeight - this->actor.shape.feetPos[FOOT_LEFT].y, 7.0f, 5.0f);
         func_800286CC(play, &pos, &sSandFootVelocity, &sSandFootAccel, 50, 30);
+        //! @bug Not using FOOT_LEFT like right foot below 
         func_8084260C(&this->actor.shape.feetPos[FOOT_RIGHT], &pos,
                       this->actor.floorHeight - this->actor.shape.feetPos[FOOT_RIGHT].y, 7.0f, 5.0f);
         func_800286CC(play, &this->actor.shape.feetPos[FOOT_RIGHT], &sSandFootVelocity, &sSandFootAccel, 50, 30);
@@ -15758,6 +15764,10 @@ void Player_Action_Grabbed(Player* this, PlayState* play) {
         Player_ReturnToIdle(this, play);
         this->stateFlags2 &= ~PLAYER_STATE2_GRABBED;
     }
+    // Note: If player is eaten by Like like and then starts cutscene (such as stepping on switch),
+    // Like like will spit out player but not remove the grabbed action. This looks like a softlock,
+    // but can be escaped by button mashing as if Redead. Something like if (this->actor.parent == NULL)
+    // can also be added here to ensure player is always free is not grabbed by enemy.
 }
 
 void Player_Action_SlideOnSlope(Player* this, PlayState* play) {
@@ -15936,7 +15946,7 @@ void Player_Action_ExitGrotto(Player* this, PlayState* play) {
     if (this->actor.velocity.y < 0.0f) {
         Player_SetupNotOnGroundWithAV(this, play);
     } else if (this->actor.velocity.y < 6.0f) {
-        Math_StepToF(&this->speedXZ, 3.0f, 0.5f);
+        Math_StepToF(&this->speedXZ, 3.0f, 0.5f); // Don't reenter the grotto
     }
 }
 
