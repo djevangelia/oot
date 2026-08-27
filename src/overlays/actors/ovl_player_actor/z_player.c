@@ -12535,7 +12535,11 @@ s32 func_8084B3CC(PlayState* play, Player* this) {
     return 0;
 }
 
-void func_8084B498(Player* this) {
+/**
+ * Sets player itemAction to Ocarina, and ensures correct model is used depending on Ocarina slot content.
+ * Used for games and cutscenes, not regular Ocarina playing.
+ */
+void Player_SetOcarinaItemAction(Player* this) {
     this->itemAction =
         (INV_CONTENT(ITEM_OCARINA_FAIRY) == ITEM_OCARINA_FAIRY) ? PLAYER_IA_OCARINA_FAIRY : PLAYER_IA_OCARINA_OF_TIME;
 }
@@ -12543,7 +12547,7 @@ void func_8084B498(Player* this) {
 s32 func_8084B4D4(PlayState* play, Player* this) {
     if (this->stateFlags3 & PLAYER_STATE3_5) {
         this->stateFlags3 &= ~PLAYER_STATE3_5;
-        func_8084B498(this);
+        Player_SetOcarinaItemAction(this);
         this->unk_6AD = 4;
         Player_ActionHandler_13(this, play);
         return 1;
@@ -15603,7 +15607,7 @@ void func_80851CA4(PlayState* play, Player* this, CsCmdActorCue* cue) {
 
 void func_80851D2C(PlayState* play, Player* this, CsCmdActorCue* cue) {
     Player_AnimChangeOnceMorphAdjustedZeroRootYawSpeed(play, this, &gPlayerAnim_link_normal_okarina_start);
-    func_8084B498(this);
+    Player_SetOcarinaItemAction(this);
     Player_SetModels(this, Player_ActionToModelGroup(this, this->itemAction));
 }
 
